@@ -39,8 +39,16 @@ jobs:
           SITE_URL: https://avdeevgreyfog-cmd.github.io/sergey-portfolio/
         run: npm run build
 
-      - name: QA
+      - name: Static QA
         run: npm test
+
+      - name: Install browser QA tools
+        run: |
+          python3 -m pip install --disable-pip-version-check -r requirements-dev.txt
+          python3 -m playwright install --with-deps chromium
+
+      - name: Browser QA
+        run: python3 tests/browser_qa.py
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
