@@ -35,7 +35,10 @@ export function initHome() {
     stage.style.transform = `rotate(${lerp(-3, 0, p).toFixed(3)}deg)`;
     stage.style.clipPath = `polygon(${lerp(7,0,p).toFixed(2)}% ${lerp(2,0,p).toFixed(2)}%,100% ${lerp(10,0,p).toFixed(2)}%,${lerp(94,100,p).toFixed(2)}% 100%,0 ${lerp(88,100,p).toFixed(2)}%)`;
     stage.style.boxShadow = `0 ${lerp(35,20,p).toFixed(1)}px ${lerp(90,48,p).toFixed(1)}px rgba(0,0,0,.22)`;
-    if (titleLine) titleLine.style.transform = `translateX(${lerp(0, mobile ? -1.2 : -3, p).toFixed(3)}vw)`;
+    if (titleLine) {
+      titleLine.style.transform = `translateX(${lerp(0, mobile ? -1.2 : -3, p).toFixed(3)}vw)`;
+      titleLine.style.fontSize = mobile ? '.58em' : '';
+    }
     if (label) label.style.opacity = String(Math.max(0, Math.min(1, (p - .42) * 2.5)));
     scale = lerp(1.07, 1.02, p);
     media.forEach((node) => node.style.filter = `saturate(.72) contrast(1.07) brightness(${lerp(.82,.95,p).toFixed(4)})`);
