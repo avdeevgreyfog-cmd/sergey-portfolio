@@ -17,6 +17,23 @@ def server():
   try: yield f'http://127.0.0.1:{s.server_address[1]}{BASE}'
   finally: s.shutdown(); th.join(timeout=2)
 
+def prepare_visual_page(page):
+ # A full-page screenshot does not physically scroll Chromium, so IntersectionObserver
+ # reveals and native loading=lazy media would otherwise look blank/broken in the evidence.
+ height=page.evaluate('document.documentElement.scrollHeight')
+ viewport=page.viewport_size['height']
+ y=0
+ while y < height:
+  page.evaluate('(y)=>window.scrollTo(0,y)', y)
+  page.wait_for_timeout(90)
+  y += max(280, int(viewport * .72))
+ page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)')
+ page.wait_for_timeout(180)
+ page.evaluate('window.scrollTo(0,0)')
+ page.wait_for_timeout(120)
+ # Give decoded lazy images a bounded chance to settle before metrics/screenshots.
+ page.wait_for_function("""() => [...document.images].every(i => i.complete)""", timeout=5000)
+
 def main():
  findings=[]; shots=[]
  routes=[('home','/'),('case','/work/raznye-ludi/'),('demo','/demo/raznye-ludi/'),('material','/effects/digital-material/')]
@@ -27,7 +44,8 @@ def main():
    for w,h in viewports if name in ('home','case') else [(390,844),(1440,900)]:
     page=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=1)
     page.goto(origin+route,wait_until='networkidle'); page.wait_for_timeout(250)
-    metrics=page.evaluate("""() => ({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth, h1:[...document.querySelectorAll('h1')].map(e=>{const r=e.getBoundingClientRect();return {w:r.width,h:r.height,left:r.left,right:r.right,top:r.top}}), broken:[...document.images].filter(i=>!i.complete||i.naturalWidth===0).map(i=>i.src)})""")
+    prepare_visual_page(page)
+    metrics=page.evaluate("""() => ({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth, h1:[...document.querySelectorAll('h1')].map(e=>{const r=e.getBoundingClientRect();return {w:r.width,h:r.height,left:r.left,right:r.right,top:r.top}}), broken:[...document.images].filter(i=>i.complete&&i.naturalWidth===0).map(i=>i.src)})""")
     if metrics['sw']>metrics['cw']+1: findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'horizontal overflow {metrics["sw"]}>{metrics["cw"]}'})
     if metrics['broken']: findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'broken media: {metrics["broken"][:3]}'})
     for box in metrics['h1']:
