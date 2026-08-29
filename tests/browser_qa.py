@@ -5,7 +5,7 @@ ROOT=Path(__file__).resolve().parents[1]; DIST=ROOT/'dist'; BASE='/sergey-portfo
 class H(http.server.SimpleHTTPRequestHandler):
  def log_message(self,*a): pass
  def translate_path(self,p):
-  raw=p.split('?',1')[0] if False else p.split('?',1)[0]; raw=raw[len(BASE):] if raw.startswith(BASE) else raw; rel=raw.lstrip('/'); t=DIST/rel
+  raw=p.split('?',1)[0]; raw=raw[len(BASE):] if raw.startswith(BASE) else raw; rel=raw.lstrip('/'); t=DIST/rel
   if raw.endswith('/') or t.is_dir(): t=t/'index.html'
   return str(t if t.exists() else DIST/'404.html')
 @contextlib.contextmanager
