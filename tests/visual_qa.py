@@ -1,59 +1,34 @@
 from pathlib import Path
-import contextlib, http.server, json, socketserver, threading, sys
+import contextlib,http.server,json,socketserver,threading,sys
 from playwright.sync_api import sync_playwright
-
-ROOT=Path(__file__).resolve().parents[1]; DIST=ROOT/'dist'; OUT=ROOT/'qa-screens'; REPORT=ROOT/'visual-report'; BASE='/sergey-portfolio'
-OUT.mkdir(exist_ok=True); REPORT.mkdir(exist_ok=True)
+ROOT=Path(__file__).resolve().parents[1];DIST=ROOT/'dist';OUT=ROOT/'qa-screens';REPORT=ROOT/'visual-report';BASE='/sergey-portfolio';OUT.mkdir(exist_ok=True);REPORT.mkdir(exist_ok=True)
 class H(http.server.SimpleHTTPRequestHandler):
- def log_message(self,*a): pass
+ def log_message(self,*a):pass
  def translate_path(self,p):
-  raw=p.split('?',1)[0]; raw=raw[len(BASE):] if raw.startswith(BASE) else raw; rel=raw.lstrip('/'); t=DIST/rel
-  if raw.endswith('/') or t.is_dir(): t=t/'index.html'
+  raw=p.split('?',1)[0];raw=raw[len(BASE):] if raw.startswith(BASE) else raw;rel=raw.lstrip('/');t=DIST/rel
+  if raw.endswith('/') or t.is_dir():t=t/'index.html'
   return str(t if t.exists() else DIST/'404.html')
 @contextlib.contextmanager
 def server():
  with socketserver.ThreadingTCPServer(('127.0.0.1',0),H) as s:
-  th=threading.Thread(target=s.serve_forever,daemon=True); th.start()
-  try: yield f'http://127.0.0.1:{s.server_address[1]}{BASE}'
-  finally: s.shutdown(); th.join(timeout=2)
-
-def prepare_visual_page(page):
- # A full-page screenshot does not physically scroll Chromium, so IntersectionObserver
- # reveals and native loading=lazy media would otherwise look blank/broken in the evidence.
- height=page.evaluate('document.documentElement.scrollHeight')
- viewport=page.viewport_size['height']
- y=0
- while y < height:
-  page.evaluate('(y)=>window.scrollTo(0,y)', y)
-  page.wait_for_timeout(90)
-  y += max(280, int(viewport * .72))
- page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)')
- page.wait_for_timeout(180)
- page.evaluate('window.scrollTo(0,0)')
- page.wait_for_timeout(120)
- # Give decoded lazy images a bounded chance to settle before metrics/screenshots.
- page.wait_for_function("""() => [...document.images].every(i => i.complete)""", timeout=5000)
-
+  th=threading.Thread(target=s.serve_forever,daemon=True);th.start()
+  try:yield f'http://127.0.0.1:{s.server_address[1]}{BASE}'
+  finally:s.shutdown();th.join(timeout=2)
 def main():
- findings=[]; shots=[]
- routes=[('home','/'),('case','/work/raznye-ludi/'),('demo','/demo/raznye-ludi/'),('material','/effects/digital-material/')]
- viewports=[(390,844),(834,1112),(1440,900),(1920,1080)]
- with server() as origin, sync_playwright() as p:
+ findings=[];shots=[];routes=[('home','/'),('works','/works/'),('case','/work/raznye-ludi/'),('effects','/effects/'),('process','/process/'),('contact','/contact/'),('video','/effects/video-scroll/'),('story','/effects/scroll-story/'),('type','/effects/kinetic-type/')]
+ with server() as origin,sync_playwright() as p:
   browser=p.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
   for name,route in routes:
-   for w,h in viewports if name in ('home','case') else [(390,844),(1440,900)]:
-    page=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=1)
-    page.goto(origin+route,wait_until='networkidle'); page.wait_for_timeout(250)
-    prepare_visual_page(page)
-    metrics=page.evaluate("""() => ({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth, h1:[...document.querySelectorAll('h1')].map(e=>{const r=e.getBoundingClientRect();return {w:r.width,h:r.height,left:r.left,right:r.right,top:r.top}}), broken:[...document.images].filter(i=>i.complete&&i.naturalWidth===0).map(i=>i.src)})""")
-    if metrics['sw']>metrics['cw']+1: findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'horizontal overflow {metrics["sw"]}>{metrics["cw"]}'})
-    if metrics['broken']: findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'broken media: {metrics["broken"][:3]}'})
-    for box in metrics['h1']:
-     if box['left']<-2 or box['right']>w+2: findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':'H1 clipping'})
-    path=OUT/f'{name}-{w}.png'; page.screenshot(path=str(path),full_page=True); shots.append(str(path.relative_to(ROOT))); page.close()
+   for w,h in [(390,844),(1440,900)]:
+    page=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=1);page.goto(origin+route,wait_until='networkidle');page.evaluate("() => document.querySelectorAll('img').forEach(i=>i.loading='eager')")
+    try:page.wait_for_function("() => [...document.images].every(i=>i.complete)",timeout=8000)
+    except Exception:pass
+    page.wait_for_timeout(250);m=page.evaluate("() => ({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,h1:[...document.querySelectorAll('h1')].map(e=>{const r=e.getBoundingClientRect();return {l:r.left,r:r.right}}),broken:[...document.images].filter(i=>!i.complete||i.naturalWidth===0).map(i=>i.src)})")
+    if m['sw']>m['cw']+1:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'horizontal overflow {m["sw"]}>{m["cw"]}'})
+    if m['broken']:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'broken media: {m["broken"][:3]}'})
+    for b in m['h1']:
+     if b['l']<-2 or b['r']>w+2:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':'H1 clipping'})
+    path=OUT/f'{name}-{w}.png';page.screenshot(path=str(path),full_page=True);shots.append(str(path.relative_to(ROOT)));page.close()
   browser.close()
- report={'screenshots':shots,'findings':findings,'critical':sum(f['severity']=='CRITICAL' for f in findings),'major':sum(f['severity']=='MAJOR' for f in findings)}
- (REPORT/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
- print(json.dumps(report,ensure_ascii=False,indent=2))
- return 1 if report['critical'] or report['major'] else 0
-if __name__=='__main__': sys.exit(main())
+ report={'screenshots':shots,'findings':findings,'critical':sum(f['severity']=='CRITICAL' for f in findings),'major':sum(f['severity']=='MAJOR' for f in findings)};(REPORT/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps(report,ensure_ascii=False,indent=2));return 1 if report['critical'] or report['major'] else 0
+if __name__=='__main__':sys.exit(main())

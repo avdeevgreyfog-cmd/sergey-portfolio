@@ -1,13 +1,13 @@
 {
-  "name": "sergey-portfolio-v2",
-  "version": "2.0.0",
+  "name": "sergey-portfolio-v3",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "typecheck": "tsc --noEmit",
     "build": "npm run clean && tsc && node scripts/build.mjs",
-    "test": "python3 tests/qa.py",
+    "test": "python3 tests/qa.py && node tests/fixture_qa.mjs",
     "test:browser": "python3 tests/browser_qa.py",
     "test:visual": "python3 tests/visual_qa.py"
   },

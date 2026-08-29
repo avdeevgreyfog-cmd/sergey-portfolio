@@ -3,7 +3,6 @@
   "short_name": "Сергей Авдеев",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#efeae0",
-  "theme_color": "#efeae0",
-  "icons": []
+  "background_color": "#f2eee6",
+  "theme_color": "#f2eee6"
 }

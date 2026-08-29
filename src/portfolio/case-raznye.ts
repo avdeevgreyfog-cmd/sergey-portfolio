@@ -1,11 +1,7 @@
-export function initRaznyeCase(): void {
-  const video = document.querySelector<HTMLVideoElement>('[data-case-video]');
-  if (!video) return;
-  const observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) void video.play().catch(() => undefined);
-      else video.pause();
-    }
-  }, { threshold: 0.15 });
-  observer.observe(video);
+import { reducedMotion } from '../shared/motion.js';
+export function initRaznyeCase() {
+  const video=document.querySelector<HTMLVideoElement>('[data-case-video]');
+  if(!video||reducedMotion())return;
+  const io=new IntersectionObserver((entries)=>entries.forEach((entry)=>entry.isIntersecting?video.play().catch(()=>{}):video.pause()),{threshold:.25});
+  io.observe(video);
 }

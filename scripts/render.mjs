@@ -1,148 +1,83 @@
-const esc = (value) => String(value)
-  .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+const esc=(value)=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 
-export function createRenderer({ basePath, siteUrl, site, capabilities, effects, projects }) {
-  const href = (path) => `${basePath}${path.startsWith('/') ? path : `/${path}`}` || '/';
-  const media = (path) => href(`/${path.replace(/^\//,'')}`);
-  const canonical = (route) => siteUrl ? `${siteUrl.replace(/\/$/,'')}${route}` : '';
-  const og = siteUrl ? `${siteUrl.replace(/\/$/,'')}/og-image.png` : href('/og-image.png');
+export function createRenderer({basePath,siteUrl,site,capabilities,effects,projects,projectCategories,featuredProject}){
+  const href=(path)=>`${basePath}${path.startsWith('/')?path:`/${path}`}`||'/';
+  const media=(path)=>href(`/${path.replace(/^\//,'')}`);
+  const canonical=(route)=>siteUrl?`${siteUrl.replace(/\/$/,'')}${route}`:'';
+  const og=siteUrl?`${siteUrl.replace(/\/$/,'')}/og-image.png`:href('/og-image.png');
+  const navItems=[['Главная','/'],['Работы','/works/'],['Интерактив','/effects/'],['Как работаю','/process/'],['Контакты','/contact/']];
 
-  const header = (dark = false) => `
-    <header class="site-header${dark ? ' site-header--dark' : ''}" data-site-header>
-      <div class="site-header__inner">
-        <a class="site-brand" href="${href('/')}">Сергей Авдеев</a>
-        <nav class="site-nav" data-shell-nav aria-label="Основная навигация">
-          <a href="${href('/')}#work">Работа</a>
-          <a href="${href('/')}#capabilities">Возможности</a>
-          <a href="${href('/')}#process">Подход</a>
-          <a href="${href('/')}#contact">Контакты</a>
-        </nav>
-        <button class="site-menu" type="button" aria-label="Открыть меню" aria-expanded="false" data-menu-toggle><span></span><span></span></button>
-      </div>
-    </header>`;
+  const header=(route='/')=>`<header class="site-header" data-site-header><div class="site-header__inner"><a class="site-brand" href="${href('/')}">Сергей Авдеев</a><nav class="site-nav" data-shell-nav aria-label="Основная навигация">${navItems.map(([label,path])=>`<a href="${href(path)}"${route===path?' aria-current="page"':''}>${label}</a>`).join('')}<a class="site-nav__cta" href="${href('/contact/')}">Обсудить проект</a></nav><button class="site-menu" type="button" aria-label="Открыть меню" aria-expanded="false" data-menu-toggle><span></span><span></span></button></div></header>`;
+  const footer=()=>`<footer class="site-footer"><div class="shell site-footer__inner"><small>© ${new Date().getUTCFullYear()} Сергей Авдеев</small><div><a href="${href('/works/')}">Работы</a><a href="${href('/contact/')}">Контакты</a><a href="${site.github}" target="_blank" rel="noopener">GitHub</a></div></div></footer>`;
 
-  const footer = () => `
-    <footer class="site-footer"><div class="shell site-footer__inner">
-      <small>© ${new Date().getUTCFullYear()} Сергей Авдеев · персональное портфолио</small>
-      <a href="${site.github}" rel="noopener" target="_blank">GitHub</a>
-    </div></footer>`;
-
-  function document({ route, title, description, body, robots='index,follow', css=['portfolio.css'], bodyClass='' }) {
-    const cssLinks = ['base.css', ...css].map((name) => `<link rel="stylesheet" href="${href(`/assets/css/${name}`)}">`).join('\n');
-    const canonicalTag = canonical(route) ? `<link rel="canonical" href="${esc(canonical(route))}">` : '';
-    return `<!doctype html>
-<html lang="ru"><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>${esc(title)}</title>
-<meta name="description" content="${esc(description)}">
-<meta name="robots" content="${robots}">
-<meta name="theme-color" content="#efeae0">
-<meta name="app-base" content="${esc(basePath)}">
-${canonicalTag}
-<meta property="og:type" content="website">
-<meta property="og:title" content="${esc(title)}">
-<meta property="og:description" content="${esc(description)}">
-<meta property="og:image" content="${esc(og)}">
-<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(description)}"><meta name="twitter:image" content="${esc(og)}">
-<link rel="icon" href="${href('/favicon.svg')}" type="image/svg+xml">
-<link rel="manifest" href="${href('/site.webmanifest')}">
-${cssLinks}
-</head><body class="${bodyClass}">
-<a class="skip-link" href="#main">К основному содержанию</a>
-${body}
-<script type="module" src="${href('/assets/js/main.js')}"></script>
-</body></html>`;
+  function document({route,title,description,body,robots='index,follow',css=['site.css'],bodyClass=''}){
+    const cssLinks=['base.css',...css].map((name)=>`<link rel="stylesheet" href="${href(`/assets/css/${name}`)}">`).join('\n');
+    return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>${esc(title)}</title><meta name="description" content="${esc(description)}"><meta name="robots" content="${robots}"><meta name="theme-color" content="#f2eee6"><meta name="app-base" content="${esc(basePath)}">${canonical(route)?`<link rel="canonical" href="${esc(canonical(route))}">`:''}<meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}"><meta property="og:image" content="${esc(og)}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><link rel="icon" href="${href('/favicon.svg')}" type="image/svg+xml"><link rel="manifest" href="${href('/site.webmanifest')}">${cssLinks}</head><body class="${bodyClass}"><a class="skip-link" href="#main">К основному содержанию</a>${body}<script type="module" src="${href('/assets/js/main.js')}"></script></body></html>`;
   }
 
-  function home() {
-    const featured = projects.filter((p) => p.featured && p.status === 'SHOWCASE')[0];
-    const caps = capabilities.map((cap, index) => `<article class="capability" data-reveal><span class="capability__n">0${index+1}</span><h3>${esc(cap.title)}</h3><p>${esc(cap.text)}</p></article>`).join('');
-    const effectCards = effects.map((effect, index) => {
-      const cls = ['preview-video','preview-story','preview-material','preview-type'][index] ?? 'preview-material';
-      return `<a class="effect-card" href="${href(`/effects/${effect.slug}/`)}" data-effect-preview>
-        <div class="effect-card__preview ${cls}" aria-hidden="true"></div>
-        <div class="effect-card__top"><span>0${index+1}</span><span>Посмотреть эффект ↗</span></div>
-        <h3>${esc(effect.title)}</h3><p>${esc(effect.text)}</p>
-      </a>`;
-    }).join('');
-    const process = [
-      ['Задача','Определяем, что должен делать продукт и для кого.'],
-      ['Структура и визуальный язык','Проектируется сценарий, контент и интерфейс.'],
-      ['Разработка','Собирается рабочий адаптивный продукт.'],
-      ['Проверка и запуск','Тестирование, исправления и выпуск.']
-    ].map((item,index)=>`<article class="process-step" data-reveal><span class="process-step__n">0${index+1}</span><h3>${item[0]}</h3><p>${item[1]}</p></article>`).join('');
-    const contacts = site.contacts.map((contact) => `<a href="${contact.href}"${contact.kind==='github'?' target="_blank" rel="noopener"':''}>${esc(contact.label)} ↗</a>`).join('');
-    const cover = featured ? media(featured.cover) : '';
-    const projectRoute = featured ? href(`/work/${featured.slug}/`) : '#work';
-    const body = `${header()}
-<main id="main">
-<section class="hero-v2" data-hero>
-  <div class="shell hero-v2__top"><span class="eyebrow">Сергей Авдеев · web development</span><span class="hero-v2__meta">Дизайн / frontend / interactive</span></div>
-  <div class="shell hero-v2__body">
-    <div class="hero-v2__copy">
-      <h1 class="hero-v2__title"><span>Сайты и</span><span>веб-приложения</span><span>под ключ</span></h1>
-      <p class="hero-v2__lead">Разработка сайтов и веб-интерфейсов от структуры и визуальной концепции до рабочего адаптивного продукта.</p>
-    </div>
-    <a class="digital-sheet" href="${projectRoute}" data-digital-sheet aria-label="Открыть проект «Разные люди»">
-      <div class="digital-sheet__plane" data-sheet-plane>
-        <div class="digital-sheet__grid" aria-hidden="true"></div><div class="noise" aria-hidden="true"></div><div class="digital-sheet__bar"></div>
-        <div class="digital-sheet__brand">РАЗНЫЕ<br>ЛЮДИ</div><div class="digital-sheet__meta">01 / featured work<br>interactive website</div>
-        ${cover ? `<img class="digital-sheet__image" src="${cover}" alt="" fetchpriority="high">` : ''}
-        <div class="digital-sheet__caption">digital material → real project</div><div class="digital-sheet__pointer" aria-hidden="true">↗</div>
-      </div>
-    </a>
-    <span class="hero-v2__scroll">Прокрутите ↓</span>
-  </div>
-</section>
-<section class="featured" id="work">
-  <div class="shell">
-    <div class="featured__head" data-reveal><span class="eyebrow">Featured work / 01</span><div><h2>Не только экран.<br>Рабочий сайт.</h2><p>Проект можно изучить как кейс, а затем открыть полноценную portfolio-копию и пройти её как обычный сайт.</p></div></div>
-    ${featured ? `<a class="featured__visual" href="${projectRoute}" data-reveal><img src="${cover}" alt="${esc(featured.title)} — фрагмент сайта" loading="lazy"><div class="featured__overlay"><h3>${esc(featured.title)}</h3><div class="featured__details">${esc(featured.type)}<br>${featured.year}</div></div></a><div class="featured__cta"><a class="button-link" href="${projectRoute}">Смотреть проект <span>↗</span></a></div>` : ''}
-  </div>
-</section>
-<section class="capabilities" id="capabilities"><div class="shell"><div class="section-intro" data-reveal><span class="eyebrow">Возможности</span><div><h2>Что могу<br>разработать</h2><p>От промо-страницы до внутреннего сервиса — формат и сложность определяются задачей, а не готовым шаблоном.</p></div></div><div class="capability-list">${caps}</div></div></section>
-<section class="effects-index" id="effects"><div class="shell"><div class="section-intro" data-reveal><span class="eyebrow">Интерактив</span><div><h2>Механики,<br>которые работают</h2><p>Несколько самостоятельных демонстраций — чтобы показать, как motion и интерактив могут усиливать подачу, а не просто украшать страницу.</p></div></div><div class="effects-grid">${effectCards}</div></div></section>
-<section class="process" id="process"><div class="shell"><div class="section-intro" data-reveal><span class="eyebrow">Подход</span><div><h2>От задачи<br>до запуска</h2><p>Короткий процесс без лишней методологии.</p></div></div><div class="process-grid">${process}</div></div></section>
-<section class="about-v2"><div class="shell about-v2__grid"><h2 data-reveal>Сергей<br>Авдеев</h2><div class="about-v2__copy" data-reveal><strong>Сайты и веб-приложения.</strong><p>Работаю со структурой, визуальной системой, frontend-логикой и интерактивом. Современные AI-assisted инструменты использую как часть процесса разработки, а не как замену продуктовой логике и проверке результата.</p><div class="about-v2__rule">Персональная работа · одна точка ответственности</div></div></div></section>
-<section class="contact-v2" id="contact"><div class="shell"><span class="eyebrow" data-reveal>Контакты</span><h2 data-reveal>Есть проект —<br>обсудим задачу.</h2><div class="contact-v2__bottom" data-reveal><p>Расскажите, что нужно сделать: сайт, интерфейс или интерактивный проект. Начнём с задачи и нужного результата.</p><div class="contact-links">${contacts}</div></div></div></section>
-</main>${footer()}`;
-    return document({ route:'/', title:site.title, description:site.description, body, css:['portfolio.css'] });
+  const featured=featuredProject(projects);
+
+  function home(){
+    const cover=featured?media(featured.cover):''; const video=featured?.previewMedia.find((item)=>item.kind==='video');
+    const caps=capabilities.slice(0,5).map((cap,i)=>`<article class="cap-preview" data-reveal><span>0${i+1}</span><h3>${esc(cap.title)}</h3><p>${esc(cap.text)}</p></article>`).join('');
+    const effectRows=effects.slice(0,3).map((effect,i)=>`<a class="home-effect" href="${href(`/effects/${effect.slug}/`)}" data-reveal><span class="home-effect__n">0${i+1}</span><div><h3>${esc(effect.publicTitle)}</h3><p>${esc(effect.text)}</p></div><span class="home-effect__arrow">↗</span></a>`).join('');
+    const body=`${header('/')}<main id="main"><section class="home-hero" data-live-hero><div class="home-hero__sticky"><div class="shell home-hero__meta"><span>Сергей Авдеев</span><span>Web design / development / interactive</span></div><div class="shell home-hero__title"><h1><span>Сайты и</span><span>веб-приложения</span><span>под ключ</span></h1></div><a class="live-window" href="${href(`/work/${featured.slug}/`)}" data-live-window aria-label="Открыть проект «${esc(featured.title)}»"><img src="${cover}" alt="" fetchpriority="high"><video muted loop playsinline preload="none" poster="${cover}" data-hero-video data-src="${video?media(video.src):''}"></video><div class="live-window__grain" aria-hidden="true"></div><div class="live-window__label"><span>Featured / 01</span><strong>${esc(featured.title)}</strong><span>Смотреть проект ↗</span></div></a><div class="shell home-hero__hint">Прокрутите — окно раскрывает реальную работу</div></div></section>
+<section class="home-intro"><div class="shell home-intro__grid"><span class="kicker" data-reveal>Обо мне</span><p class="home-intro__lead" data-reveal>Проектирую и разрабатываю сайты и веб-интерфейсы: от структуры и визуальной идеи до адаптивного рабочего продукта.</p><p class="home-intro__side" data-reveal>Работаю с дизайном, frontend-логикой, motion и интерактивом как с одной системой.</p></div></section>
+<section class="home-featured"><div class="shell"><div class="section-head" data-reveal><span class="kicker">Избранная работа</span><div><h2>${esc(featured.title)}</h2><p>${esc(featured.shortDescription)}</p></div><a href="${href('/works/')}">Все работы ↗</a></div><a class="featured-stage" href="${href(`/work/${featured.slug}/`)}" data-reveal><img src="${cover}" alt="${esc(featured.title)} — фрагмент проекта" loading="lazy"><div class="featured-stage__meta"><span>${esc(featured.type)}</span><span>${featured.year}</span><strong>Смотреть проект ↗</strong></div></a></div></section>
+<section class="home-capabilities"><div class="shell"><div class="section-head" data-reveal><span class="kicker">Что могу сделать</span><div><h2>От промо-сайта<br>до веб-сервиса</h2><p>Формат выбирается под задачу, а не под готовый шаблон.</p></div></div><div class="cap-preview-list">${caps}</div></div></section>
+<section class="home-interactive"><div class="shell"><div class="section-head section-head--light" data-reveal><span class="kicker">Интерактив</span><div><h2>Motion, который<br>работает на подачу</h2><p>Три готовых механики в реальном визуальном контексте.</p></div><a href="${href('/effects/')}">Все возможности ↗</a></div><div class="home-effect-list">${effectRows}</div></div></section>
+<section class="home-process"><div class="shell home-process__grid"><div data-reveal><span class="kicker">Как работаю</span><h2>Задача → структура → разработка → проверка → запуск</h2></div><div data-reveal><p>Сначала определяем цель и содержание. Затем собирается визуальная система и рабочий продукт, после чего он проходит проверку и выпускается.</p><a class="text-link" href="${href('/process/')}">Как проходит работа ↗</a></div></div></section>
+<section class="home-contact"><div class="shell"><span class="kicker" data-reveal>Новый проект</span><h2 data-reveal>Есть задача —<br>обсудим.</h2><a class="contact-arrow" href="${href('/contact/')}" data-reveal><span>Обсудить проект</span><span>↗</span></a></div></section></main>${footer()}`;
+    return document({route:'/',title:site.title,description:site.description,body});
   }
 
-  function casePage(project) {
-    const serviceHtml = project.services.map((s)=>`<span>${esc(s)}</span>`).join('');
-    const images = project.caseMedia.filter((m)=>m.kind==='image');
-    const video = project.caseMedia.find((m)=>m.kind==='video');
-    const img = (index, cls='') => images[index] ? `<img class="${cls}" src="${media(images[index].src)}" alt="${esc(images[index].alt)}" loading="lazy">` : '';
-    const body = `${header()}
-<main id="main">
-<section class="case-hero"><div class="shell"><div class="case-hero__meta"><span>${esc(project.type)}</span><span>${project.year} · ${esc(project.title)}</span></div><h1>${esc(project.title)}</h1><div class="case-hero__sub"><p>${esc(project.shortDescription)}</p><a class="button-link button-link--accent" href="${href(project.demoRoute)}">Смотреть сайт ↗</a></div></div></section>
-<section class="case-key">${video ? `<video data-case-video muted loop playsinline preload="metadata" poster="${media(project.cover)}"><source src="${media(video.src)}" type="video/mp4"></video>` : img(0)}<span class="case-key__mark">Project / visual walkthrough</span></section>
-<section class="case-story"><div class="shell"><article class="case-story__row" data-reveal><h2>Задача</h2><p>Создать атмосферный сайт страйкбольной команды, который показывает характер команды, знакомит посетителя с форматом и приводит к первому контакту.</p></article><article class="case-story__row" data-reveal><h2>Решение</h2><div><p>Сайт строится вокруг фото и видео, крупной типографики и последовательного сценария: от первого впечатления — к формату команды, тренировкам, критериям и контакту. Интерактив поддерживает историю, но не мешает навигации.</p><div class="case-services">${serviceHtml}</div></div></article></div></section>
-<section class="walkthrough"><div class="shell"><div class="walkthrough__head" data-reveal><h2>Визуальный<br>маршрут</h2><p>Крупные медиа и разные композиции вместо повторяющейся сетки карточек.</p></div><figure class="media-wide" data-reveal>${img(0)}</figure><div class="media-split"><figure><div class="media-split__a" data-reveal>${img(1)}</div><figcaption class="media-caption">Динамика / игры и выезды</figcaption></figure><figure><div class="media-split__b" data-reveal>${img(2)}</div><figcaption class="media-caption">Сценарий / путь до первой тренировки</figcaption></figure></div><div class="media-editorial"><div class="media-editorial__text" data-reveal><strong>Фотография ведёт повествование.</strong><p>Текст остаётся коротким, а смена визуальных сцен задаёт ритм страницы и помогает быстро понять атмосферу команды.</p></div><div class="media-editorial__image" data-reveal>${img(3)}</div></div><figure class="media-wide" data-reveal>${img(4)}</figure></div></section>
-<section class="case-cta"><div class="shell case-cta__inner"><h2>Смотреть<br>сайт</h2><a class="button-link" href="${href(project.demoRoute)}">Открыть полный demo ↗</a></div></section>
-</main>${footer()}`;
-    return document({ route:`/work/${project.slug}/`, title:`${project.title} — проект Сергея Авдеева`, description:`${project.title}: ${project.shortDescription}`, body, css:['case.css'] });
+  function works(){
+    const categories=projectCategories(projects); const showFilters=categories.length>1;
+    const filters=showFilters?`<div class="work-filters" data-work-filters role="group" aria-label="Фильтр работ"><button type="button" data-filter="Все" aria-pressed="true">Все</button>${categories.map((cat)=>`<button type="button" data-filter="${esc(cat)}" aria-pressed="false">${esc(cat)}</button>`).join('')}</div>`:'';
+    const list=projects.map((project,index)=>{const preview=project.previewMedia.find((item)=>item.kind==='video');return `<article class="work-entry" data-project-category="${esc(project.category)}" data-reveal><a class="work-entry__media" href="${href(`/work/${project.slug}/`)}"><img src="${media(project.cover)}" alt="${esc(project.title)} — обложка проекта" loading="${index?'lazy':'eager'}">${preview?`<video muted loop playsinline preload="metadata" poster="${media(project.cover)}"><source src="${media(preview.src)}" type="video/mp4"></video>`:''}<span class="work-entry__hint">Открыть кейс ↗</span></a><div class="work-entry__info"><div><span>${String(index+1).padStart(2,'0')}</span><h2><a href="${href(`/work/${project.slug}/`)}">${esc(project.title)}</a></h2></div><div><p>${esc(project.shortDescription)}</p><span>${esc(project.type)} · ${project.year}</span></div></div></article>`}).join('');
+    const body=`${header('/works/')}<main id="main"><section class="page-hero works-hero"><div class="shell"><span class="kicker">Portfolio / ${String(projects.length).padStart(2,'0')}</span><h1>Работы</h1><p>Сайты и веб-интерфейсы, которые можно изучить как презентацию и открыть в рабочей portfolio-версии.</p>${filters}</div></section><section class="works-list"><div class="shell">${list}</div></section></main>${footer()}`;
+    return document({route:'/works/',title:`Работы — ${site.owner}`,description:'Каталог опубликованных сайтов и веб-интерфейсов Сергея Авдеева.',body});
   }
 
-  function effectPage(effect) {
-    const commonHead = `<div class="shell effect-head"><div><a class="back-link" href="${href('/')}#effects">Назад в портфолио</a><h1>${esc(effect.title)}</h1></div><p>${esc(effect.text)}</p></div>`;
-    let demo = '';
-    if (effect.slug === 'digital-material') demo = `<section class="material-stage" data-material-stage><div class="material-object" data-material-object><div class="material-object__content"><div class="material-object__line"></div><span class="mono">pointer / depth / light</span><h2>Интерфейс<br>как материал</h2></div></div></section>`;
-    if (effect.slug === 'video-scroll') demo = `<section class="video-scroll-scene" data-video-scroll-scene><div class="video-scroll-sticky"><video muted playsinline preload="auto" poster="${media('projects/raznye-ludi/assets/scene_01.webp')}"><source src="${media('projects/raznye-ludi/assets/final_hero.mp4')}" type="video/mp4"></video><div class="video-scroll-copy"><h2>Движение страницы управляет сценой.</h2><p>Прокрутка становится монтажной шкалой: движение вперёд и назад меняет момент видео.</p></div><div class="video-progress" data-video-progress></div></div></section>`;
-    if (effect.slug === 'scroll-story') demo = `<section class="shell scroll-story" data-scroll-story><div class="story-visual" data-story-visual data-scene="0"><span class="story-visual__label">scene / 01</span></div><div class="story-steps"><article class="story-step is-active" data-story-step="0"><span>01</span><h2>Вход в историю</h2><p>Один визуальный объект остаётся в фокусе, пока содержание меняется вокруг него.</p></article><article class="story-step" data-story-step="1"><span>02</span><h2>Смена контекста</h2><p>Композиция реагирует на следующую смысловую точку без перезагрузки и тяжёлого scroll hijacking.</p></article><article class="story-step" data-story-step="2"><span>03</span><h2>Финальный акцент</h2><p>Последняя сцена перестраивает форму и цвет, чтобы закрыть историю сильным визуальным действием.</p></article></div></section>`;
-    if (effect.slug === 'type-reveal') demo = `<section class="shell type-field" data-type-field><div class="type-line"><span class="type-word" data-type-word>Текст</span><span class="type-word" data-type-word>может</span></div><div class="type-line"><span class="type-word" data-type-word>реагировать</span></div><div class="type-line"><span class="type-word" data-type-word>на</span><span class="type-word" data-type-word>движение</span></div><div class="type-note"><span>Проведите указателем по типографике</span><span>На touch — статичная доступная версия</span></div></section>`;
-    const body = `${header()}<main id="main" class="effect-page">${commonHead}${demo}<div class="shell effect-end"><span class="mono">focused demo / noindex</span><a class="back-link" href="${href('/')}#effects">К другим возможностям</a></div></main>`;
-    return document({ route:`/effects/${effect.slug}/`, title:`${effect.title} — интерактивная демонстрация`, description:effect.text, body, robots:'noindex,nofollow', css:['effects.css'] });
+  function casePage(project){
+    const caseInfo=project.caseStudy||{task:project.shortDescription,solution:'Проект собран как целостный пользовательский сценарий.',done:project.services};
+    const video=project.caseMedia.find((m)=>m.kind==='video'); const images=project.caseMedia.filter((m)=>m.kind==='image'); const img=(i,cls='')=>images[i]?`<img class="${cls}" src="${media(images[i].src)}" alt="${esc(images[i].alt)}" loading="lazy">`:'';
+    const done=caseInfo.done.map((item,i)=>`<li><span>0${i+1}</span>${esc(item)}</li>`).join('');
+    const body=`${header('/works/')}<main id="main"><section class="case-hero"><div class="shell"><div class="case-hero__meta"><span>${esc(project.type)}</span><span>${project.year}</span></div><h1>${esc(project.title)}</h1><p>${esc(project.shortDescription)}</p></div></section><section class="case-key">${video?`<video data-case-video muted loop playsinline preload="metadata" poster="${media(project.cover)}"><source src="${media(video.src)}" type="video/mp4"></video>`:img(0)}</section><section class="case-brief"><div class="shell"><article data-reveal><span class="kicker">Задача</span><p>${esc(caseInfo.task)}</p></article><article data-reveal><span class="kicker">Решение</span><p>${esc(caseInfo.solution)}</p><a class="case-view" href="${href(project.demoRoute)}">Смотреть сайт ↗</a></article></div></section><section class="case-done"><div class="shell"><div class="case-done__head" data-reveal><span class="kicker">Что было сделано</span><h2>От структуры<br>до интерактива</h2></div><ol>${done}</ol></div></section><section class="case-gallery"><div class="shell"><figure class="case-shot case-shot--wide" data-reveal>${img(0)}<figcaption>Главная сцена / первое впечатление</figcaption></figure><div class="case-gallery__split"><figure class="case-shot case-shot--portrait" data-reveal>${img(1)}<figcaption>Контент и характер команды</figcaption></figure><figure class="case-shot case-shot--landscape" data-reveal>${img(2)}<figcaption>Ритм фото и текста</figcaption></figure></div><div class="case-gallery__editorial"><div data-reveal><span class="kicker">Storytelling</span><h2>Визуал ведёт пользователя по странице, а текст остаётся коротким.</h2></div><figure class="case-shot case-shot--detail" data-reveal>${img(3)}</figure></div><figure class="case-shot case-shot--wide" data-reveal>${img(4)}<figcaption>Финальный участок пользовательского маршрута</figcaption></figure></div></section><section class="case-end"><div class="shell"><span class="kicker">Полная версия</span><h2>Посмотреть проект<br>как настоящий сайт</h2><a href="${href(project.demoRoute)}">Смотреть сайт <span>↗</span></a></div></section></main>${footer()}`;
+    return document({route:`/work/${project.slug}/`,title:`${project.title} — проект Сергея Авдеева`,description:`${project.title}: ${project.shortDescription}`,body,css:['case.css']});
   }
 
-  function notFound() {
-    const body = `${header()}<main id="main" class="effect-page"><div class="shell effect-head" style="min-height:80svh;align-items:center"><div><span class="eyebrow">404</span><h1>Страница<br>не найдена</h1><a class="button-link" href="${href('/')}">На главную</a></div></div></main>${footer()}`;
-    return document({ route:'/404.html', title:'404 — Сергей Авдеев', description:'Страница не найдена.', body, robots:'noindex,nofollow', css:['effects.css'] });
+  function effectsIndex(){
+    const rows=effects.map((effect,i)=>`<a class="effect-row" href="${href(`/effects/${effect.slug}/`)}" data-reveal><span class="effect-row__n">0${i+1}</span><div><h2>${esc(effect.title)}</h2><p>${esc(effect.text)}</p></div><div class="effect-row__preview effect-row__preview--${effect.slug}" aria-hidden="true"><span>${esc(effect.publicTitle)}</span></div><span class="effect-row__arrow">↗</span></a>`).join('');
+    const body=`${header('/effects/')}<main id="main"><section class="page-hero effects-hero"><div class="shell"><span class="kicker">Interactive / 03</span><h1>Интерактив</h1><p>Не набор библиотек, а готовые механики, которые можно встроить в реальный сайт и использовать для подачи продукта или истории.</p></div></section><section class="effect-catalog"><div class="shell">${rows}</div></section></main>${footer()}`;
+    return document({route:'/effects/',title:`Интерактив — ${site.owner}`,description:'Интерактивные web-механики: video scroll, scroll storytelling и кинетическая типографика.',body,css:['effects.css']});
   }
 
-  return { href, media, document, home, casePage, effectPage, notFound };
+  function process(){
+    const steps=[['Заявка','Опишите задачу, примерный формат сайта, нужный функционал и всё, что уже есть: тексты, референсы, фото или текущий сайт. Если части материалов нет — это не мешает начать обсуждение.'],['Обсуждение','Определяем цель, структуру, ключевые сценарии, функциональность и визуальное направление.'],['Оценка','Фиксируем объём, этапы, ориентиры по срокам и стоимость после того, как понятна реальная задача.'],['Дизайн и разработка','Собираю структуру, визуальную систему и рабочую адаптивную версию продукта.'],['Проверка','Проверяю основные сценарии, адаптив, тексты, ссылки, формы, производительность и визуальные состояния.'],['Запуск','Подготавливаю production-сборку и размещение. После запуска проект можно расширять новыми страницами и функциями.']];
+    const rows=steps.map((step,i)=>`<article class="process-row" data-reveal><span>${String(i+1).padStart(2,'0')}</span><h2>${step[0]}</h2><p>${step[1]}</p></article>`).join('');
+    const faq=[['Что если у меня нет дизайна?','Дизайн можно разработать с нуля: от структуры и визуального направления до готового интерфейса.'],['Что если нет текстов?','Можно начать с черновой информации. Структуру и объём контента определим в процессе, а финальные тексты добавим до выпуска.'],['Можно ли переделать существующий сайт?','Да. Сначала нужно понять, что в текущем сайте стоит сохранить, а что мешает задаче и требует переработки.'],['Можно ли потом расширять сайт?','Да, если архитектура изначально сделана с расчётом на развитие: новые страницы, разделы и функции можно добавлять поэтапно.'],['Где будет размещён проект?','Вариант размещения выбирается под стек и задачу: статический хостинг, Vercel или другой подходящий сервис.'],['Можно ли добавить CRM, Telegram, email или API?','Да, если интеграция технически доступна и есть необходимые доступы/endpoint.'],['Как происходят правки?','Правки проходят по этапам: сначала фиксируется конкретное замечание, затем оно вносится и перепроверяется в контексте всей страницы.']];
+    const faqHtml=faq.map((item)=>`<details><summary>${item[0]}<span>+</span></summary><p>${item[1]}</p></details>`).join('');
+    const body=`${header('/process/')}<main id="main"><section class="page-hero process-hero"><div class="shell"><span class="kicker">Процесс</span><h1>Как<br>работаю</h1><p>Без обязательного сложного брифа. Достаточно начать с задачи — остальное раскладывается по этапам.</p></div></section><section class="process-map"><div class="shell">${rows}</div></section><section class="process-faq"><div class="shell"><div class="process-faq__head"><span class="kicker">FAQ</span><h2>Частые вопросы</h2></div><div class="process-faq__list">${faqHtml}</div></div></section><section class="process-contact"><div class="shell"><h2>Есть задача?</h2><a href="${href('/contact/')}">Обсудить проект ↗</a></div></section></main>${footer()}`;
+    return document({route:'/process/',title:`Как работаю — ${site.owner}`,description:'Как проходит заказ и разработка сайта или веб-приложения: от заявки до запуска.',body});
+  }
+
+  function contact(){
+    const contacts=site.contacts.map((contact)=>`<a href="${contact.href}" target="_blank" rel="noopener"><span>${esc(contact.label)}</span><span>↗</span></a>`).join('');
+    const body=`${header('/contact/')}<main id="main"><section class="contact-page"><div class="shell contact-page__grid"><div class="contact-page__intro"><span class="kicker">Новый проект</span><h1>Обсудить<br>проект</h1><p>Расскажите, что хотите сделать — сайт, интернет-магазин, веб-приложение или интерактивную страницу.</p><div class="contact-channels">${contacts}</div></div><div class="contact-form-wrap"><form class="contact-form" data-contact-form><label><span>Имя</span><input name="name" autocomplete="name" required></label><label><span>Контакт для связи</span><input name="contact" autocomplete="email" required placeholder="Telegram, email или телефон"></label><label><span>Что необходимо</span><select name="type"><option>Сайт / лендинг</option><option>Интернет-магазин</option><option>Веб-приложение</option><option>Интерактивная страница</option><option>Другое</option></select></label><label><span>Комментарий</span><textarea name="message" rows="5" placeholder="Коротко о задаче"></textarea></label><button type="submit">Подготовить запрос <span>↗</span></button></form><pre class="contact-result" data-contact-result hidden aria-live="polite"></pre><button class="contact-copy" type="button" data-contact-copy hidden>Скопировать запрос</button></div></div></section></main>${footer()}`;
+    return document({route:'/contact/',title:`Обсудить проект — ${site.owner}`,description:'Связаться с Сергеем Авдеевым по поводу разработки сайта, интернет-магазина или веб-приложения.',body});
+  }
+
+  function effectPage(effect){
+    const head=`<section class="effect-detail-head"><div class="shell"><a class="back-link" href="${href('/effects/')}">← Все интерактивные возможности</a><span class="kicker">${esc(effect.title)}</span><h1>${esc(effect.publicTitle)}</h1><p>${esc(effect.text)}</p></div></section>`;
+    let demo='';
+    if(effect.slug==='video-scroll') demo=`<section class="video-cinema" data-video-scene><div class="video-cinema__sticky"><video data-video-scroll muted playsinline preload="auto" poster="${media('projects/raznye-ludi/assets/scene_01.webp')}"><source src="${media('projects/raznye-ludi/assets/final_hero.mp4')}" type="video/mp4"></video><div class="video-cinema__veil"></div><div class="shell video-cinema__copy"><span>Scroll controls the cut</span><h2>Движение страницы<br>становится монтажом</h2></div><div class="video-cinema__progress" data-video-progress></div></div></section>`;
+    if(effect.slug==='scroll-story') demo=`<section class="story-experience"><div class="shell story-experience__grid"><div class="story-stage" data-story-stage data-scene="0"><img src="${media('projects/raznye-ludi/assets/scene_04.webp')}" alt="" class="story-stage__img story-stage__img--0"><img src="${media('projects/raznye-ludi/assets/scene_05.webp')}" alt="" class="story-stage__img story-stage__img--1"><img src="${media('projects/raznye-ludi/assets/scene_09.webp')}" alt="" class="story-stage__img story-stage__img--2"><span class="story-stage__index">01 / 03</span></div><div class="story-copy"><article class="story-step is-active" data-story-step="0"><span>01</span><h2>Вход в историю</h2><p>Один визуальный центр удерживает внимание, пока пользователь входит в контекст.</p></article><article class="story-step" data-story-step="1"><span>02</span><h2>Смена сцены</h2><p>Следующий смысловой блок меняет визуальное состояние без перезагрузки и без жёсткого scroll-jacking.</p></article><article class="story-step" data-story-step="2"><span>03</span><h2>Финальный акцент</h2><p>Визуал перестраивается вместе с текстом и помогает закрыть историю сильной сценой.</p></article></div></div></section>`;
+    if(effect.slug==='kinetic-type') demo=`<section class="kinetic-field" data-kinetic-field><img src="${media('projects/raznye-ludi/assets/scene_10.webp')}" alt="" aria-hidden="true"><div class="kinetic-field__wash"></div><div class="kinetic-field__type"><span>ДВИЖЕНИЕ</span><span>МЕНЯЕТ</span><span>СМЫСЛ</span></div><div class="kinetic-field__note">Двигайте указатель по сцене</div></section>`;
+    const body=`${header('/effects/')}<main id="main" class="effect-detail">${head}${demo}<section class="effect-next"><div class="shell"><span>Нужна похожая механика в проекте?</span><a href="${href('/contact/')}">Обсудить задачу ↗</a></div></section></main>${footer()}`;
+    return document({route:`/effects/${effect.slug}/`,title:`${effect.publicTitle} — интерактивная демонстрация`,description:effect.text,body,robots:'noindex,nofollow',css:['effects.css']});
+  }
+
+  function notFound(){const body=`${header('/')}<main id="main"><section class="page-hero"><div class="shell"><span class="kicker">404</span><h1>Страница<br>не найдена</h1><a class="text-link" href="${href('/')}">На главную ↗</a></div></section></main>${footer()}`;return document({route:'/404.html',title:'404 — Сергей Авдеев',description:'Страница не найдена.',body,robots:'noindex,nofollow'});}
+  return {home,works,casePage,effectsIndex,process,contact,effectPage,notFound,document,href,media};
 }

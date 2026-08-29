@@ -1,61 +1,77 @@
-import { prefersReducedMotion } from '../shared/motion.js';
+import { reducedMotion } from '../shared/motion.js';
 
-function initDigitalSheet(): void {
-  const host = document.querySelector<HTMLElement>('[data-digital-sheet]');
-  const plane = host?.querySelector<HTMLElement>('[data-sheet-plane]');
-  if (!host || !plane || prefersReducedMotion()) return;
+export function initHome() {
+  const hero = document.querySelector<HTMLElement>('[data-live-hero]');
+  const stage = document.querySelector<HTMLElement>('[data-live-window]');
+  const video = document.querySelector<HTMLVideoElement>('[data-hero-video]');
+  const label = stage?.querySelector<HTMLElement>('.live-window__label');
+  const titleLine = hero?.querySelector<HTMLElement>('.home-hero__title span:nth-child(2)');
+  const media = stage ? [...stage.querySelectorAll<HTMLElement>('img,video')] : [];
+  if (!hero || !stage) return;
 
-  let raf = 0;
-  const reset = () => {
-    plane.style.setProperty('--rx', '2deg');
-    plane.style.setProperty('--ry', '-9deg');
-    plane.style.setProperty('--mx', '0px');
-    plane.style.setProperty('--my', '0px');
-  };
-
-  host.addEventListener('pointermove', (event) => {
-    if (event.pointerType === 'touch') return;
-    const bounds = host.getBoundingClientRect();
-    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
-    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
-    cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => {
-      plane.style.setProperty('--rx', `${2 + y * -7}deg`);
-      plane.style.setProperty('--ry', `${-9 + x * 9}deg`);
-      plane.style.setProperty('--mx', `${x * 12}px`);
-      plane.style.setProperty('--my', `${y * 10}px`);
-    });
+  let loaded = false;
+  let pointerX = 0;
+  let pointerY = 0;
+  let scale = 1.07;
+  const lerp = (start: number, end: number, p: number) => start + (end - start) * p;
+  const paintMedia = () => media.forEach((node) => {
+    node.style.transform = `translate(${pointerX.toFixed(2)}px,${pointerY.toFixed(2)}px) scale(${scale.toFixed(4)})`;
   });
-  host.addEventListener('pointerleave', reset);
-  reset();
-}
 
-function initHeroScroll(): void {
-  const hero = document.querySelector<HTMLElement>('[data-hero]');
-  if (!hero || prefersReducedMotion()) return;
-  let raf = 0;
   const update = () => {
-    raf = 0;
     const rect = hero.getBoundingClientRect();
-    const progress = Math.max(0, Math.min(1, -rect.top / Math.max(1, rect.height * 0.7)));
-    hero.style.setProperty('--hero-progress', progress.toFixed(3));
+    const range = Math.max(1, hero.offsetHeight - innerHeight);
+    const p = Math.min(1, Math.max(0, -rect.top / range));
+    const mobile = innerWidth <= 800;
+    const geometry = mobile
+      ? { left:[38,4], top:[45,36], width:[57,92], height:[29,57] }
+      : { left:[58,2], top:[41,10], width:[27,96], height:[31,82] };
+
+    hero.style.setProperty('--hero-p', p.toFixed(4));
+    stage.style.left = `${lerp(geometry.left[0], geometry.left[1], p).toFixed(3)}vw`;
+    stage.style.top = `${lerp(geometry.top[0], geometry.top[1], p).toFixed(3)}vh`;
+    stage.style.width = `${lerp(geometry.width[0], geometry.width[1], p).toFixed(3)}vw`;
+    stage.style.height = `${lerp(geometry.height[0], geometry.height[1], p).toFixed(3)}vh`;
+    stage.style.transform = `rotate(${lerp(-3, 0, p).toFixed(3)}deg)`;
+    stage.style.clipPath = `polygon(${lerp(7,0,p).toFixed(2)}% ${lerp(2,0,p).toFixed(2)}%,100% ${lerp(10,0,p).toFixed(2)}%,${lerp(94,100,p).toFixed(2)}% 100%,0 ${lerp(88,100,p).toFixed(2)}%)`;
+    stage.style.boxShadow = `0 ${lerp(35,20,p).toFixed(1)}px ${lerp(90,48,p).toFixed(1)}px rgba(0,0,0,.22)`;
+    if (titleLine) titleLine.style.transform = `translateX(${lerp(0, mobile ? -1.2 : -3, p).toFixed(3)}vw)`;
+    if (label) label.style.opacity = String(Math.max(0, Math.min(1, (p - .42) * 2.5)));
+    scale = lerp(1.07, 1.02, p);
+    media.forEach((node) => node.style.filter = `saturate(.72) contrast(1.07) brightness(${lerp(.82,.95,p).toFixed(4)})`);
+    paintMedia();
+    if (video) video.style.opacity = String(Math.max(0, Math.min(1, (p - .48) * 2.2)));
+
+    if (video && p > .48 && !loaded) {
+      const src = video.dataset.src;
+      if (src) {
+        video.src = src;
+        video.load();
+        if (!reducedMotion()) video.play().catch(() => {});
+        loaded = true;
+      }
+    }
   };
-  window.addEventListener('scroll', () => {
-    if (!raf) raf = requestAnimationFrame(update);
-  }, { passive: true });
+
+  let ticking = false;
+  const request = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => { update(); ticking = false; });
+  };
+  addEventListener('scroll', request, { passive:true });
+  addEventListener('resize', request, { passive:true });
   update();
-}
 
-function initEffectPreviews(): void {
-  if (!window.matchMedia('(hover:hover) and (pointer:fine)').matches) return;
-  document.querySelectorAll<HTMLElement>('[data-effect-preview]').forEach((card) => {
-    card.addEventListener('pointerenter', () => card.classList.add('is-previewing'));
-    card.addEventListener('pointerleave', () => card.classList.remove('is-previewing'));
-  });
-}
-
-export function initHome(): void {
-  initDigitalSheet();
-  initHeroScroll();
-  initEffectPreviews();
+  if (!reducedMotion()) {
+    stage.addEventListener('pointermove', (event) => {
+      const r = stage.getBoundingClientRect();
+      const x = Math.min(1, Math.max(0, (event.clientX-r.left)/Math.max(1,r.width)));
+      const y = Math.min(1, Math.max(0, (event.clientY-r.top)/Math.max(1,r.height)));
+      pointerX = (.5-x)*12;
+      pointerY = (.5-y)*9;
+      paintMedia();
+    });
+    stage.addEventListener('pointerleave', () => { pointerX=0; pointerY=0; paintMedia(); });
+  }
 }

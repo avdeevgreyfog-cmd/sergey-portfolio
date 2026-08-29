@@ -1,8 +1,8 @@
-name: Portfolio V2 QA and Pages
+name: Portfolio V3 QA and Pages
 
 on:
   push:
-    branches: [main, portfolio-v2]
+    branches: [main, portfolio-v3]
   workflow_dispatch:
 
 permissions:
@@ -20,59 +20,47 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Typecheck
         run: npm run typecheck
-
       - name: Build production site
         env:
           BASE_PATH: /sergey-portfolio
           SITE_URL: https://avdeevgreyfog-cmd.github.io/sergey-portfolio
         run: npm run build
-
-      - name: Static QA
+      - name: Static and scalability QA
         run: npm test
-
       - name: Install browser QA tools
         run: |
           python3 -m pip install --disable-pip-version-check -r requirements-dev.txt
           python3 -m playwright install --with-deps chromium
-
       - name: Functional browser QA
         run: npm run test:browser
-
       - name: Visual screenshot QA
         run: npm run test:visual
-
       - name: Upload visual QA evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: portfolio-v2-visual-qa
+          name: portfolio-v3-visual-qa
           path: |
             qa-screens
             visual-report
           if-no-files-found: warn
-
       - name: Configure GitHub Pages
         if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
-
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v4
         with:
           path: dist
-
   deploy:
     if: github.ref == 'refs/heads/main'
     environment:

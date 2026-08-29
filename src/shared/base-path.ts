@@ -1,18 +1,9 @@
-export function getBasePath(): string {
-  const value = document.querySelector<HTMLMetaElement>('meta[name="app-base"]')?.content ?? '';
-  return value.replace(/\/$/, '');
+export function getBasePath() {
+  const value = document.querySelector<HTMLMetaElement>('meta[name="app-base"]')?.content || '';
+  return value.replace(/\/$/,'');
 }
-
-export function stripBase(pathname = window.location.pathname): string {
+export function routePath() {
   const base = getBasePath();
-  if (base && pathname.startsWith(base)) {
-    return pathname.slice(base.length) || '/';
-  }
-  return pathname || '/';
-}
-
-export function withBase(path: string): string {
-  const base = getBasePath();
-  const normalized = path.startsWith('/') ? path : `/${path}`;
-  return `${base}${normalized}` || '/';
+  const path = location.pathname;
+  return base && path.startsWith(base) ? (path.slice(base.length) || '/') : path;
 }
