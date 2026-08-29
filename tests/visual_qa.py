@@ -14,22 +14,29 @@ def server():
   th=threading.Thread(target=s.serve_forever,daemon=True);th.start()
   try:yield f'http://127.0.0.1:{s.server_address[1]}{BASE}'
   finally:s.shutdown();th.join(timeout=2)
+def settle(page):
+ page.evaluate("""() => {document.querySelectorAll('[data-reveal]').forEach(e=>{e.classList.add('is-visible');e.style.transition='none';e.style.opacity='1';e.style.transform='none'});document.querySelectorAll('img').forEach(i=>i.loading='eager')}""")
+ try:page.wait_for_function("() => [...document.images].every(i=>i.complete)",timeout=8000)
+ except Exception:pass
+ page.wait_for_timeout(120)
 def main():
  findings=[];shots=[];routes=[('home','/'),('works','/works/'),('case','/work/raznye-ludi/'),('services','/services/'),('process','/process/'),('contact','/contact/')]
  with server() as origin,sync_playwright() as p:
   browser=p.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
   for name,route in routes:
    for w,h in [(390,844),(1440,900)]:
-    page=browser.new_page(viewport={'width':w,'height':h});page.goto(origin+route,wait_until='networkidle');page.evaluate("""() => {document.querySelectorAll('[data-reveal]').forEach(e=>{e.classList.add('is-visible');e.style.transition='none';e.style.opacity='1';e.style.transform='none'});document.querySelectorAll('img').forEach(i=>i.loading='eager')}""")
-    try:page.wait_for_function("() => [...document.images].every(i=>i.complete)",timeout=8000)
-    except Exception:pass
-    page.wait_for_timeout(120)
+    page=browser.new_page(viewport={'width':w,'height':h});page.goto(origin+route,wait_until='networkidle');settle(page)
     m=page.evaluate("""() => {const sw=document.documentElement.scrollWidth,cw=document.documentElement.clientWidth;const offenders=[...document.querySelectorAll('body *')].map(e=>{const r=e.getBoundingClientRect();return {tag:e.tagName,cls:typeof e.className==='string'?e.className:'',left:Math.round(r.left),right:Math.round(r.right)}}).filter(x=>x.left<-1||x.right>innerWidth+1).slice(0,8);return {sw,cw,offenders,broken:[...document.images].filter(i=>!i.complete||i.naturalWidth===0).map(i=>i.src),h1:[...document.querySelectorAll('h1')].map(e=>{const r=e.getBoundingClientRect();return [r.left,r.right]})}}""")
     if m['sw']>m['cw']+1:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'horizontal overflow {m["sw"]}>{m["cw"]}; {m["offenders"]}'})
     if m['broken']:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':'broken media'})
     for l,r in m['h1']:
      if l<-2 or r>w+2:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':'H1 clipping'})
     path=OUT/f'{name}-{w}.png';page.screenshot(path=str(path),full_page=True);shots.append(str(path.relative_to(ROOT)));page.close()
+  # Capture the actual autonomous site UI so V4 can use product screenshots, not only source photography.
+  demo=browser.new_page(viewport={'width':1440,'height':900});demo.goto(origin+'/demo/raznye-ludi/',wait_until='networkidle');settle(demo)
+  demo.screenshot(path=str(OUT/'demo-ui-hero-1440.png'),full_page=False);shots.append('qa-screens/demo-ui-hero-1440.png')
+  demo.evaluate('window.scrollTo(0, document.body.scrollHeight * 0.42)');demo.wait_for_timeout(350);demo.screenshot(path=str(OUT/'demo-ui-mid-1440.png'),full_page=False);shots.append('qa-screens/demo-ui-mid-1440.png');demo.close()
+  demo=browser.new_page(viewport={'width':390,'height':844});demo.goto(origin+'/demo/raznye-ludi/',wait_until='networkidle');settle(demo);demo.screenshot(path=str(OUT/'demo-ui-mobile-390.png'),full_page=False);shots.append('qa-screens/demo-ui-mobile-390.png');demo.close()
   browser.close()
  report={'screenshots':shots,'findings':findings,'critical':sum(f['severity']=='CRITICAL' for f in findings),'major':sum(f['severity']=='MAJOR' for f in findings)};(REPORT/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps(report,ensure_ascii=False,indent=2));return 1 if report['critical'] or report['major'] else 0
 if __name__=='__main__':sys.exit(main())
