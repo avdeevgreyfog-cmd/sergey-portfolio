@@ -42,7 +42,14 @@ def no_overflow(page):
     assert sw <= cw+1, f'overflow {sw}>{cw}'
 
 def media_ok(page):
-    bad=page.evaluate("""() => [...document.images].filter(i => i.getBoundingClientRect().width>0 && (!i.complete || i.naturalWidth===0)).map(i=>i.src)""")
+    # QA must verify the actual resources, not mistake untouched loading=lazy images
+    # below the fold for broken files. Force a browser load, then inspect decode state.
+    page.evaluate("""() => document.querySelectorAll('img').forEach((img) => { img.loading = 'eager'; })""")
+    try:
+        page.wait_for_function("""() => [...document.images].every((img) => img.complete)""", timeout=8000)
+    except Exception:
+        pass
+    bad=page.evaluate("""() => [...document.images].filter(i => !i.complete || i.naturalWidth===0).map(i=>i.src)""")
     assert not bad, f'broken images: {bad[:5]}'
 
 
