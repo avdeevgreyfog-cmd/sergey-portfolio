@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Show generated lockfile
+        run: cat package-lock.json
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -38,10 +41,11 @@ jobs:
           SITE_URL: https://avdeevgreyfog-cmd.github.io/sergey-portfolio/
         run: npm run build
 
+      - name: QA
+        run: npm test
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
