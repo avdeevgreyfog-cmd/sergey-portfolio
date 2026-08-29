@@ -8,8 +8,8 @@ DATA = (ROOT / '.build/data.js').read_text(encoding='utf-8').replace('export con
 APP = (ROOT / '.build/app.js').read_text(encoding='utf-8')
 APP = re.sub(r"^import \{[^\n]+\n", '', APP, count=1)
 BUNDLE = DATA + '\n' + APP
-# Chromium in this environment blocks external navigation/resources. Replace only media URLs
-# during QA rendering; application code and DOM behavior stay unchanged.
+
+# Browser QA is intentionally isolated from third-party media availability.
 svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="1600" height="1000" fill="#d3cec4"/></svg>'
 placeholder = 'data:image/svg+xml;base64,' + base64.b64encode(svg.encode()).decode()
 BUNDLE = re.sub(r"https://[^'\"]+\.(?:webp|jpg)(?:\?[^'\"]*)?", placeholder, BUNDLE)
@@ -25,22 +25,32 @@ def assert_no_overflow(page):
     assert page.evaluate('document.documentElement.scrollWidth') == page.evaluate('document.documentElement.clientWidth')
 
 
+def launch_chromium(playwright):
+    kwargs = {
+        'headless': True,
+        'args': ['--no-sandbox', '--disable-gpu']
+    }
+    system_chromium = Path('/usr/bin/chromium')
+    if system_chromium.exists():
+        kwargs['executable_path'] = str(system_chromium)
+    return playwright.chromium.launch(**kwargs)
+
+
 def main():
     checks = []
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, executable_path='/usr/bin/chromium', args=['--no-sandbox', '--disable-gpu'])
+        browser = launch_chromium(p)
 
-        # Shell: menu and link integrity.
         page = browser.new_page(viewport={'width': 390, 'height': 844})
         set_route(page, '/')
         assert_no_overflow(page)
         page.locator('[data-menu-toggle]').click()
         expect(page.locator('[data-shell-nav]')).to_have_class(re.compile('is-open'))
         assert page.locator('a[href="/works/"]').count() >= 1
-        checks.append('shell/mobile navigation'); print('PASS shell', flush=True)
+        checks.append('shell/mobile navigation')
+        print('PASS shell', flush=True)
         page.close()
 
-        # Raznye Ludi: interaction + validation + success + viewport control.
         page = browser.new_page(viewport={'width': 1440, 'height': 900})
         set_route(page, '/demo/raznye-ludi/')
         page.locator('[data-loadout-step="2"]').click()
@@ -54,10 +64,10 @@ def main():
         page.locator('[data-viewport="mobile"]').click()
         expect(page.locator('[data-demo-stage]')).to_have_class(re.compile('viewport-mobile'))
         assert page.locator('.demo-exit').get_attribute('href') == '/work/raznye-ludi/'
-        checks.append('raznye/form + interaction + demo toolbar'); print('PASS raznye', flush=True)
+        checks.append('raznye/form + interaction + demo toolbar')
+        print('PASS raznye', flush=True)
         page.close()
 
-        # B2B: estimator, invalid, error and success states.
         page = browser.new_page(viewport={'width': 834, 'height': 1112})
         set_route(page, '/demo/b2b-engineering/')
         initial = page.locator('[data-b2b-estimate]').inner_text()
@@ -76,10 +86,10 @@ def main():
         page.locator('[data-b2b-form]').evaluate('(f)=>f.requestSubmit()')
         expect(page.locator('[data-form-message]')).to_contain_text('Заявка не отправлялась', timeout=2000)
         assert_no_overflow(page)
-        checks.append('b2b/estimate + validation + loading/error/success'); print('PASS b2b', flush=True)
+        checks.append('b2b/estimate + validation + loading/error/success')
+        print('PASS b2b', flush=True)
         page.close()
 
-        # E-commerce: search, favorite, PDP, cart quantity, checkout validation/success.
         page = browser.new_page(viewport={'width': 1440, 'height': 900})
         set_route(page, '/demo/design-light-store/')
         page.locator('[data-catalog-search]').fill('Mira')
@@ -97,15 +107,15 @@ def main():
         page.locator('[data-checkout]').click()
         page.locator('[data-checkout-form]').evaluate('(f)=>f.requestSubmit()')
         expect(page.locator('[data-form-message]')).to_contain_text('Заполните поля')
-        for name, value in [('name','Тест'),('email','demo@test.ru'),('city','Москва'),('address','Demo street')]:
+        for name, value in [('name', 'Тест'), ('email', 'demo@test.ru'), ('city', 'Москва'), ('address', 'Demo street')]:
             page.locator(f'[data-checkout-form] [name="{name}"]').fill(value)
         page.locator('[data-checkout-form]').evaluate('(f)=>f.requestSubmit()')
         expect(page.locator('.checkout-success')).to_contain_text('Заказ создан локально', timeout=2500)
         expect(page.locator('[data-cart-count]')).to_have_text('0')
-        checks.append('ecommerce/search + favorite + PDP + cart + checkout'); print('PASS shop', flush=True)
+        checks.append('ecommerce/search + favorite + PDP + cart + checkout')
+        print('PASS shop', flush=True)
         page.close()
 
-        # CRM: views, filters, request status state, calculator, mobile menu.
         page = browser.new_page(viewport={'width': 390, 'height': 844})
         set_route(page, '/demo/r-kadry-demo/')
         assert_no_overflow(page)
@@ -126,10 +136,10 @@ def main():
         after = page.locator('[data-calc-result] > strong').inner_text()
         assert before != after
         assert_no_overflow(page)
-        checks.append('crm/navigation + filters + persisted status + calculator'); print('PASS crm', flush=True)
+        checks.append('crm/navigation + filters + persisted status + calculator')
+        print('PASS crm', flush=True)
         page.close()
 
-        # Lab: every mechanism has a real state change.
         page = browser.new_page(viewport={'width': 834, 'height': 1112})
         set_route(page, '/lab/')
         page.locator('[data-video-range]').fill('75')
@@ -143,7 +153,8 @@ def main():
         page.locator('[data-transition-toggle]').click()
         assert page.locator('[data-transition-panels] section.active').count() == 1
         assert_no_overflow(page)
-        checks.append('interactive lab/all six stateful mechanisms'); print('PASS lab', flush=True)
+        checks.append('interactive lab/all six stateful mechanisms')
+        print('PASS lab', flush=True)
         page.close()
 
         browser.close()
@@ -152,6 +163,7 @@ def main():
     for check in checks:
         print(' -', check)
     return 0
+
 
 if __name__ == '__main__':
     sys.exit(main())
