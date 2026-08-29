@@ -20,9 +20,10 @@ def main():
   browser=p.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
   for name,route in routes:
    for w,h in [(390,844),(1440,900)]:
-    page=browser.new_page(viewport={'width':w,'height':h});page.goto(origin+route,wait_until='networkidle');page.evaluate("() => {document.querySelectorAll('[data-reveal]').forEach(e=>e.classList.add('is-visible'));document.querySelectorAll('img').forEach(i=>i.loading='eager')}")
+    page=browser.new_page(viewport={'width':w,'height':h});page.goto(origin+route,wait_until='networkidle');page.evaluate("""() => {document.querySelectorAll('[data-reveal]').forEach(e=>{e.classList.add('is-visible');e.style.transition='none';e.style.opacity='1';e.style.transform='none'});document.querySelectorAll('img').forEach(i=>i.loading='eager')}""")
     try:page.wait_for_function("() => [...document.images].every(i=>i.complete)",timeout=8000)
     except Exception:pass
+    page.wait_for_timeout(120)
     m=page.evaluate("""() => {const sw=document.documentElement.scrollWidth,cw=document.documentElement.clientWidth;const offenders=[...document.querySelectorAll('body *')].map(e=>{const r=e.getBoundingClientRect();return {tag:e.tagName,cls:typeof e.className==='string'?e.className:'',left:Math.round(r.left),right:Math.round(r.right)}}).filter(x=>x.left<-1||x.right>innerWidth+1).slice(0,8);return {sw,cw,offenders,broken:[...document.images].filter(i=>!i.complete||i.naturalWidth===0).map(i=>i.src),h1:[...document.querySelectorAll('h1')].map(e=>{const r=e.getBoundingClientRect();return [r.left,r.right]})}}""")
     if m['sw']>m['cw']+1:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'horizontal overflow {m["sw"]}>{m["cw"]}; {m["offenders"]}'})
     if m['broken']:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':'broken media'})
