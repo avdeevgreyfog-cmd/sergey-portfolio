@@ -18,7 +18,10 @@ def guard(page,label):
  faults=[]; page.on('pageerror',lambda e:faults.append(f'{label} JS {e}')); page.on('console',lambda m:faults.append(f'{label} console {m.text}') if m.type=='error' else None)
  page.on('response',lambda r:faults.append(f'{label} HTTP {r.status} {r.url}') if r.status>=400 and 'favicon.ico' not in r.url else None); return faults
 def no_overflow(page):
- assert page.evaluate('document.documentElement.scrollWidth')<=page.evaluate('document.documentElement.clientWidth')+1
+ sw=page.evaluate('document.documentElement.scrollWidth'); cw=page.evaluate('document.documentElement.clientWidth')
+ if sw>cw+1:
+  bad=page.evaluate("""() => [...document.querySelectorAll('body *')].map((e)=>{const r=e.getBoundingClientRect();return {tag:e.tagName,cls:typeof e.className==='string'?e.className:'',text:(e.textContent||'').trim().replace(/\\s+/g,' ').slice(0,70),left:Math.round(r.left),right:Math.round(r.right),width:Math.round(r.width),display:getComputedStyle(e).display,position:getComputedStyle(e).position}}).filter((x)=>x.width>0&&(x.left < -1 || x.right > innerWidth+1)).sort((a,b)=>Math.max(b.right-innerWidth,-b.left)-Math.max(a.right-innerWidth,-a.left)).slice(0,12)""")
+  raise AssertionError(f'overflow {sw}>{cw}; offenders={bad}')
 def media_ok(page):
  page.evaluate("() => document.querySelectorAll('img').forEach(i=>i.loading='eager')")
  try: page.wait_for_function("() => [...document.images].every(i=>i.complete)",timeout=8000)
