@@ -20,11 +20,13 @@ def main():
   browser=p.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
   for name,route in routes:
    for w,h in [(390,844),(1440,900)]:
-    page=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=1);page.goto(origin+route,wait_until='networkidle');page.evaluate("() => document.querySelectorAll('img').forEach(i=>i.loading='eager')")
+    page=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=1);page.goto(origin+route,wait_until='networkidle')
+    page.evaluate("""() => {document.querySelectorAll('img').forEach(i=>i.loading='eager');document.querySelectorAll('[data-reveal]').forEach(e=>e.classList.add('is-visible'))}""")
     try:page.wait_for_function("() => [...document.images].every(i=>i.complete)",timeout=8000)
     except Exception:pass
-    page.wait_for_timeout(250);m=page.evaluate("() => ({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,h1:[...document.querySelectorAll('h1')].map(e=>{const r=e.getBoundingClientRect();return {l:r.left,r:r.right}}),broken:[...document.images].filter(i=>!i.complete||i.naturalWidth===0).map(i=>i.src)})")
-    if m['sw']>m['cw']+1:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'horizontal overflow {m["sw"]}>{m["cw"]}'})
+    page.wait_for_timeout(250)
+    m=page.evaluate("""(w) => ({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,h1:[...document.querySelectorAll('h1')].map(e=>{const r=e.getBoundingClientRect();return {l:r.left,r:r.right}}),broken:[...document.images].filter(i=>!i.complete||i.naturalWidth===0).map(i=>i.src),offenders:[...document.querySelectorAll('body *')].map(e=>{const r=e.getBoundingClientRect();return {tag:e.tagName,cls:typeof e.className==='string'?e.className:'',text:(e.textContent||'').trim().replace(/\\s+/g,' ').slice(0,60),left:Math.round(r.left),right:Math.round(r.right),sw:e.scrollWidth,cw:e.clientWidth}}).filter(x=>x.right>w+1||x.left<-1||x.sw>x.cw+1).slice(0,8)})""",w)
+    if m['sw']>m['cw']+1:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'horizontal overflow {m["sw"]}>{m["cw"]}; offenders={m["offenders"]}'})
     if m['broken']:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'broken media: {m["broken"][:3]}'})
     for b in m['h1']:
      if b['l']<-2 or b['r']>w+2:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':'H1 clipping'})
