@@ -1,8 +1,9 @@
 import { routePath } from './shared/base-path.js';
 import { observeReveals } from './shared/motion.js';
 import { initNavigation } from './portfolio/navigation.js';
+import { initProjectProof } from './portfolio/project-proof.js';
 
-initNavigation(); observeReveals();
+initNavigation(); observeReveals(); initProjectProof();
 const route=routePath();
 if(route==='/') import('./portfolio/home.js').then((m)=>m.initHome());
 if(route==='/works/'||route==='/works') import('./portfolio/works.js').then((m)=>m.initWorks());
