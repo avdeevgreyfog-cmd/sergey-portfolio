@@ -72,3 +72,36 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Production route smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://avdeevgreyfog-cmd.github.io/sergey-portfolio'
+          check_route() {
+            local path="$1"
+            local expected="$2"
+            local url="${base}${path}?release=${GITHUB_SHA}"
+            local body=''
+            for attempt in $(seq 1 18); do
+              body="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "$url" || true)"
+              if grep -Fq "$expected" <<<"$body"; then
+                echo "PASS ${path} -> ${expected}"
+                return 0
+              fi
+              echo "Waiting for Pages propagation: ${path} (attempt ${attempt}/18)"
+              sleep 5
+            done
+            echo "FAIL ${path}: expected '${expected}'"
+            return 1
+          }
+          check_route '/' 'Сайты и'
+          check_route '/works/' 'Работы'
+          check_route '/work/raznye-ludi/' 'Разные люди'
+          check_route '/demo/raznye-ludi/' 'Присоединяйся к команде'
+          check_route '/effects/' 'Интерактив'
+          check_route '/effects/video-scroll/' 'Видео при прокрутке'
+          check_route '/effects/scroll-story/' 'Scroll-повествование'
+          check_route '/effects/kinetic-type/' 'Кинетическая типографика'
+          check_route '/process/' 'Как работаю'
+          check_route '/contact/' 'Обсудить проект'
+          echo 'PRODUCTION SMOKE PASS'
