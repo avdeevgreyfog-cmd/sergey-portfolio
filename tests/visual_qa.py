@@ -15,21 +15,19 @@ def server():
   try:yield f'http://127.0.0.1:{s.server_address[1]}{BASE}'
   finally:s.shutdown();th.join(timeout=2)
 def main():
- findings=[];shots=[];routes=[('home','/'),('works','/works/'),('case','/work/raznye-ludi/'),('effects','/effects/'),('process','/process/'),('contact','/contact/'),('video','/effects/video-scroll/'),('story','/effects/scroll-story/'),('type','/effects/kinetic-type/')]
+ findings=[];shots=[];routes=[('home','/'),('works','/works/'),('case','/work/raznye-ludi/'),('services','/services/'),('process','/process/'),('contact','/contact/')]
  with server() as origin,sync_playwright() as p:
   browser=p.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
   for name,route in routes:
    for w,h in [(390,844),(1440,900)]:
-    page=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=1);page.goto(origin+route,wait_until='networkidle')
-    page.evaluate("""() => {document.querySelectorAll('img').forEach(i=>i.loading='eager');document.querySelectorAll('[data-reveal]').forEach(e=>e.classList.add('is-visible'))}""")
+    page=browser.new_page(viewport={'width':w,'height':h});page.goto(origin+route,wait_until='networkidle');page.evaluate("() => {document.querySelectorAll('[data-reveal]').forEach(e=>e.classList.add('is-visible'));document.querySelectorAll('img').forEach(i=>i.loading='eager')}")
     try:page.wait_for_function("() => [...document.images].every(i=>i.complete)",timeout=8000)
     except Exception:pass
-    page.wait_for_timeout(250)
-    m=page.evaluate("""(w) => ({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,h1:[...document.querySelectorAll('h1')].map(e=>{const r=e.getBoundingClientRect();return {l:r.left,r:r.right}}),broken:[...document.images].filter(i=>!i.complete||i.naturalWidth===0).map(i=>i.src),offenders:[...document.querySelectorAll('body *')].map(e=>{const r=e.getBoundingClientRect();return {tag:e.tagName,cls:typeof e.className==='string'?e.className:'',text:(e.textContent||'').trim().replace(/\\s+/g,' ').slice(0,60),left:Math.round(r.left),right:Math.round(r.right),sw:e.scrollWidth,cw:e.clientWidth}}).filter(x=>x.right>w+1||x.left<-1||x.sw>x.cw+1).slice(0,8)})""",w)
-    if m['sw']>m['cw']+1:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'horizontal overflow {m["sw"]}>{m["cw"]}; offenders={m["offenders"]}'})
-    if m['broken']:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'broken media: {m["broken"][:3]}'})
-    for b in m['h1']:
-     if b['l']<-2 or b['r']>w+2:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':'H1 clipping'})
+    m=page.evaluate("""() => {const sw=document.documentElement.scrollWidth,cw=document.documentElement.clientWidth;const offenders=[...document.querySelectorAll('body *')].map(e=>{const r=e.getBoundingClientRect();return {tag:e.tagName,cls:typeof e.className==='string'?e.className:'',left:Math.round(r.left),right:Math.round(r.right)}}).filter(x=>x.left<-1||x.right>innerWidth+1).slice(0,8);return {sw,cw,offenders,broken:[...document.images].filter(i=>!i.complete||i.naturalWidth===0).map(i=>i.src),h1:[...document.querySelectorAll('h1')].map(e=>{const r=e.getBoundingClientRect();return [r.left,r.right]})}}""")
+    if m['sw']>m['cw']+1:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':f'horizontal overflow {m["sw"]}>{m["cw"]}; {m["offenders"]}'})
+    if m['broken']:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':'broken media'})
+    for l,r in m['h1']:
+     if l<-2 or r>w+2:findings.append({'severity':'MAJOR','route':route,'viewport':w,'issue':'H1 clipping'})
     path=OUT/f'{name}-{w}.png';page.screenshot(path=str(path),full_page=True);shots.append(str(path.relative_to(ROOT)));page.close()
   browser.close()
  report={'screenshots':shots,'findings':findings,'critical':sum(f['severity']=='CRITICAL' for f in findings),'major':sum(f['severity']=='MAJOR' for f in findings)};(REPORT/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps(report,ensure_ascii=False,indent=2));return 1 if report['critical'] or report['major'] else 0

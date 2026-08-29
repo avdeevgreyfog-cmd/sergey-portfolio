@@ -1,34 +1,26 @@
-name: Portfolio V3 QA and Pages
-
+name: Portfolio V4 QA and Pages
 on:
   push:
-    branches: [main, portfolio-v3]
+    branches: [main, portfolio-v4]
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: portfolio-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   qa:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup Node
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Typecheck
-        run: npm run typecheck
+      - run: npm ci
+      - run: npm run typecheck
       - name: Build production site
         env:
           BASE_PATH: /sergey-portfolio
@@ -48,7 +40,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: portfolio-v3-visual-qa
+          name: portfolio-v4-visual-qa
           path: |
             qa-screens
             visual-report
@@ -77,31 +69,12 @@ jobs:
         run: |
           set -euo pipefail
           base='https://avdeevgreyfog-cmd.github.io/sergey-portfolio'
-          check_route() {
-            local path="$1"
-            local expected="$2"
-            local url="${base}${path}?release=${GITHUB_SHA}"
-            local body=''
-            for attempt in $(seq 1 18); do
-              body="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "$url" || true)"
-              if grep -Fq "$expected" <<<"$body"; then
-                echo "PASS ${path} -> ${expected}"
-                return 0
-              fi
-              echo "Waiting for Pages propagation: ${path} (attempt ${attempt}/18)"
-              sleep 5
-            done
-            echo "FAIL ${path}: expected '${expected}'"
-            return 1
-          }
+          check_route(){ local path="$1" expected="$2" body=''; for attempt in $(seq 1 18); do body="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "${base}${path}?release=${GITHUB_SHA}" || true)"; if grep -Fq "$expected" <<<"$body"; then echo "PASS ${path}"; return 0; fi; sleep 5; done; echo "FAIL ${path}"; return 1; }
           check_route '/' 'Сайты и'
           check_route '/works/' 'Работы'
           check_route '/work/raznye-ludi/' 'Разные люди'
           check_route '/demo/raznye-ludi/' 'Присоединяйся к команде'
-          check_route '/effects/' 'Интерактив'
-          check_route '/effects/video-scroll/' 'Видео при прокрутке'
-          check_route '/effects/scroll-story/' 'Scroll-повествование'
-          check_route '/effects/kinetic-type/' 'Кинетическая типографика'
+          check_route '/services/' 'Разработка сайтов'
           check_route '/process/' 'Как работаю'
-          check_route '/contact/' 'Обсудить проект'
+          check_route '/contact/' 'Обсудить'
           echo 'PRODUCTION SMOKE PASS'
