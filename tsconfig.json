@@ -4,11 +4,12 @@
     "module": "ES2022",
     "moduleResolution": "Bundler",
     "strict": true,
-    "lib": ["DOM", "ES2022"],
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "rootDir": "src",
     "outDir": ".build",
     "noEmitOnError": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true
   },
   "include": ["src/**/*.ts"]
 }

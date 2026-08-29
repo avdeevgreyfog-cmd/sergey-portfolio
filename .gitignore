@@ -1,6 +1,8 @@
 node_modules/
 .build/
+dist/
 qa-screens/
+visual-report/
 .DS_Store
 *.log
 .env

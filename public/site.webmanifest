@@ -1,1 +1,9 @@
-{"name":"Сергей — сайты и веб-приложения","short_name":"Portfolio","start_url":"/","display":"standalone","background_color":"#f4f2ed","theme_color":"#f4f2ed"}
+{
+  "name": "Сергей Авдеев — портфолио",
+  "short_name": "Сергей Авдеев",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#efeae0",
+  "theme_color": "#efeae0",
+  "icons": []
+}

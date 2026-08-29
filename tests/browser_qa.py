@@ -1,169 +1,125 @@
 from pathlib import Path
-import base64, re, sys
+import contextlib, http.server, os, re, socketserver, threading, time, sys
 from playwright.sync_api import sync_playwright, expect
 
-ROOT = Path(__file__).resolve().parents[1]
-CSS = (ROOT / 'dist/styles.css').read_text(encoding='utf-8')
-DATA = (ROOT / '.build/data.js').read_text(encoding='utf-8').replace('export const ', 'const ')
-APP = (ROOT / '.build/app.js').read_text(encoding='utf-8')
-APP = re.sub(r"^import \{[^\n]+\n", '', APP, count=1)
-BUNDLE = DATA + '\n' + APP
+ROOT=Path(__file__).resolve().parents[1]
+DIST=ROOT/'dist'
+BASE='/sergey-portfolio'
 
-# Browser QA is intentionally isolated from third-party media availability.
-svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="1600" height="1000" fill="#d3cec4"/></svg>'
-placeholder = 'data:image/svg+xml;base64,' + base64.b64encode(svg.encode()).decode()
-BUNDLE = re.sub(r"https://[^'\"]+\.(?:webp|jpg)(?:\?[^'\"]*)?", placeholder, BUNDLE)
-BUNDLE = re.sub(r"https://[^'\"]+\.mp4", 'data:video/mp4;base64,', BUNDLE)
+class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self,*args): pass
+    def translate_path(self,path):
+        raw=path.split('?',1)[0].split('#',1)[0]
+        if raw.startswith(BASE): raw=raw[len(BASE):] or '/'
+        rel=raw.lstrip('/')
+        target=(DIST/rel)
+        if raw.endswith('/') or target.is_dir(): target=target/'index.html'
+        if target.exists(): return str(target)
+        return str(DIST/'404.html')
 
+@contextlib.contextmanager
+def server():
+    with socketserver.ThreadingTCPServer(('127.0.0.1',0),QuietHandler) as httpd:
+        port=httpd.server_address[1]
+        thread=threading.Thread(target=httpd.serve_forever,daemon=True); thread.start()
+        try: yield f'http://127.0.0.1:{port}{BASE}'
+        finally: httpd.shutdown(); thread.join(timeout=2)
 
-def set_route(page, route: str):
-    html = f'''<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>{CSS}</style></head><body><div id="app"></div><script>window.__PORTFOLIO_TEST_PATH__={route!r}; Element.prototype.scrollIntoView=function(){{}};</script><script>{BUNDLE}</script></body></html>'''
-    page.set_content(html, wait_until='domcontentloaded')
+def launch(p):
+    return p.chromium.launch(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
 
+def attach_guards(page, label):
+    faults=[]
+    page.on('pageerror',lambda exc:faults.append(f'{label} JS: {exc}'))
+    page.on('console',lambda msg: faults.append(f'{label} console error: {msg.text}') if msg.type=='error' else None)
+    def response(res):
+        if res.status>=400 and 'favicon.ico' not in res.url: faults.append(f'{label} HTTP {res.status}: {res.url}')
+    page.on('response',response)
+    return faults
 
-def assert_no_overflow(page):
-    assert page.evaluate('document.documentElement.scrollWidth') == page.evaluate('document.documentElement.clientWidth')
+def no_overflow(page):
+    sw=page.evaluate('document.documentElement.scrollWidth'); cw=page.evaluate('document.documentElement.clientWidth')
+    assert sw <= cw+1, f'overflow {sw}>{cw}'
 
-
-def launch_chromium(playwright):
-    kwargs = {
-        'headless': True,
-        'args': ['--no-sandbox', '--disable-gpu']
-    }
-    system_chromium = Path('/usr/bin/chromium')
-    if system_chromium.exists():
-        kwargs['executable_path'] = str(system_chromium)
-    return playwright.chromium.launch(**kwargs)
+def media_ok(page):
+    bad=page.evaluate("""() => [...document.images].filter(i => i.getBoundingClientRect().width>0 && (!i.complete || i.naturalWidth===0)).map(i=>i.src)""")
+    assert not bad, f'broken images: {bad[:5]}'
 
 
 def main():
-    checks = []
-    with sync_playwright() as p:
-        browser = launch_chromium(p)
+  checks=[]
+  with server() as origin, sync_playwright() as p:
+    browser=launch(p)
+    all_faults=[]
 
-        page = browser.new_page(viewport={'width': 390, 'height': 844})
-        set_route(page, '/')
-        assert_no_overflow(page)
-        page.locator('[data-menu-toggle]').click()
-        expect(page.locator('[data-shell-nav]')).to_have_class(re.compile('is-open'))
-        assert page.locator('a[href="/works/"]').count() >= 1
-        checks.append('shell/mobile navigation')
-        print('PASS shell', flush=True)
-        page.close()
+    for width,height in [(390,844),(834,1112),(1440,900),(1920,1080)]:
+      page=browser.new_page(viewport={'width':width,'height':height})
+      faults=attach_guards(page,f'home-{width}'); all_faults+=faults
+      page.goto(origin+'/',wait_until='networkidle')
+      no_overflow(page); media_ok(page)
+      expect(page.locator('h1')).to_contain_text('Сайты и')
+      expect(page.locator('#work')).to_be_visible()
+      if width==390:
+        page.locator('[data-menu-toggle]').click(); expect(page.locator('[data-shell-nav]')).to_have_class(re.compile('is-open'))
+        page.keyboard.press('Escape'); expect(page.locator('[data-shell-nav]')).not_to_have_class(re.compile('is-open'))
+      page.close()
+    checks.append('homepage responsive 390/834/1440/1920 + menu + media')
 
-        page = browser.new_page(viewport={'width': 1440, 'height': 900})
-        set_route(page, '/demo/raznye-ludi/')
-        page.locator('[data-loadout-step="2"]').click()
-        expect(page.locator('[data-rz-hud]')).to_contain_text('Рация')
-        page.locator('[data-demo-form]').evaluate('(f)=>f.requestSubmit()')
-        expect(page.locator('[data-form-message]')).to_contain_text('Заполните')
-        page.locator('input[name="name"]').fill('Тест')
-        page.locator('input[name="contact"]').fill('@demo')
-        page.locator('[data-demo-form]').evaluate('(f)=>f.requestSubmit()')
-        expect(page.locator('[data-form-message]')).to_contain_text('обработана локально', timeout=2000)
-        page.locator('[data-viewport="mobile"]').click()
-        expect(page.locator('[data-demo-stage]')).to_have_class(re.compile('viewport-mobile'))
-        assert page.locator('.demo-exit').get_attribute('href') == '/work/raznye-ludi/'
-        checks.append('raznye/form + interaction + demo toolbar')
-        print('PASS raznye', flush=True)
-        page.close()
+    page=browser.new_page(viewport={'width':1440,'height':900}); faults=attach_guards(page,'case'); all_faults+=faults
+    page.goto(origin+'/work/raznye-ludi/',wait_until='networkidle'); no_overflow(page); media_ok(page)
+    expect(page.locator('h1')).to_have_text('Разные люди')
+    demo_href=page.locator('a[href$="/demo/raznye-ludi/"]').first.get_attribute('href'); assert demo_href==BASE+'/demo/raznye-ludi/'
+    page.close(); checks.append('case presentation + demo CTA')
 
-        page = browser.new_page(viewport={'width': 834, 'height': 1112})
-        set_route(page, '/demo/b2b-engineering/')
-        initial = page.locator('[data-b2b-estimate]').inner_text()
-        page.locator('input[name="area"]').fill('2000')
-        page.locator('select[name="object"]').select_option('plant')
-        page.locator('select[name="scope"]').select_option('design')
-        changed = page.locator('[data-b2b-estimate]').inner_text()
-        assert changed != initial and '400' in changed and '000' in changed
-        page.locator('[data-b2b-form]').evaluate('(f)=>f.requestSubmit()')
-        expect(page.locator('[data-form-message]')).to_contain_text('обязательные')
-        page.locator('input[name="name"]').fill('Тест')
-        page.locator('input[name="email"]').fill('error@test.ru')
-        page.locator('[data-b2b-form]').evaluate('(f)=>f.requestSubmit()')
-        expect(page.locator('[data-form-message]')).to_contain_text('Demo error-state', timeout=2000)
-        page.locator('input[name="email"]').fill('demo@test.ru')
-        page.locator('[data-b2b-form]').evaluate('(f)=>f.requestSubmit()')
-        expect(page.locator('[data-form-message]')).to_contain_text('Заявка не отправлялась', timeout=2000)
-        assert_no_overflow(page)
-        checks.append('b2b/estimate + validation + loading/error/success')
-        print('PASS b2b', flush=True)
-        page.close()
+    page=browser.new_page(viewport={'width':390,'height':844}); faults=attach_guards(page,'demo'); all_faults+=faults
+    page.goto(origin+'/demo/raznye-ludi/',wait_until='networkidle'); no_overflow(page); media_ok(page)
+    assert page.locator('.site-header').count()==0 and page.locator('[data-viewport]').count()==0
+    expect(page.locator('h1')).to_contain_text('Присоединяйся')
+    page.locator('.mobile-menu-btn').click(); expect(page.locator('#mobileMenu')).to_have_class(re.compile('open'))
+    assert page.locator('[data-portfolio-safe-demo]').count()==1
+    page.close(); checks.append('autonomous Raznye demo + mobile menu + no portfolio chrome')
 
-        page = browser.new_page(viewport={'width': 1440, 'height': 900})
-        set_route(page, '/demo/design-light-store/')
-        page.locator('[data-catalog-search]').fill('Mira')
-        assert page.locator('[data-product-card]').count() == 1
-        page.locator('[data-favorite]').click()
-        expect(page.locator('[data-fav-count]')).to_have_text('1')
-        page.locator('[data-product-open]').first.click()
-        expect(page.locator('[data-product-modal]')).to_be_visible()
-        page.locator('[data-add-cart]').click()
-        expect(page.locator('[data-cart-count]')).to_have_text('1')
-        page.locator('.product-close').click()
-        page.locator('[data-shop-cart]').click()
-        page.locator('[data-qty="plus"]').click()
-        expect(page.locator('[data-cart-count]')).to_have_text('2')
-        page.locator('[data-checkout]').click()
-        page.locator('[data-checkout-form]').evaluate('(f)=>f.requestSubmit()')
-        expect(page.locator('[data-form-message]')).to_contain_text('Заполните поля')
-        for name, value in [('name', 'Тест'), ('email', 'demo@test.ru'), ('city', 'Москва'), ('address', 'Demo street')]:
-            page.locator(f'[data-checkout-form] [name="{name}"]').fill(value)
-        page.locator('[data-checkout-form]').evaluate('(f)=>f.requestSubmit()')
-        expect(page.locator('.checkout-success')).to_contain_text('Заказ создан локально', timeout=2500)
-        expect(page.locator('[data-cart-count]')).to_have_text('0')
-        checks.append('ecommerce/search + favorite + PDP + cart + checkout')
-        print('PASS shop', flush=True)
-        page.close()
+    page=browser.new_page(viewport={'width':1440,'height':900}); faults=attach_guards(page,'material'); all_faults+=faults
+    page.goto(origin+'/effects/digital-material/',wait_until='networkidle'); no_overflow(page)
+    obj=page.locator('[data-material-object]'); before=obj.evaluate("e=>getComputedStyle(e).getPropertyValue('--mat-ry')")
+    page.locator('[data-material-stage]').hover(position={'x':900,'y':300}); page.wait_for_timeout(100)
+    after=obj.evaluate("e=>e.style.getPropertyValue('--mat-ry')"); assert after and after!=before
+    page.close(); checks.append('digital material pointer interaction')
 
-        page = browser.new_page(viewport={'width': 390, 'height': 844})
-        set_route(page, '/demo/r-kadry-demo/')
-        assert_no_overflow(page)
-        page.locator('[data-crm-menu]').click()
-        expect(page.locator('.crm-sidebar')).to_have_class(re.compile('is-open'))
-        page.locator('[data-crm-nav="requests"]').first.click()
-        page.locator('[data-crm-filter]').fill('Пром')
-        assert page.locator('[data-request-open]').count() == 1
-        page.locator('[data-request-open]').click()
-        page.locator('[data-request-status]').select_option(label='Отказ')
-        page.locator('.crm-back').click()
-        page.locator('[data-status-filter]').select_option(label='Отказ')
-        expect(page.locator('[data-crm-table-host]')).to_contain_text('Пром Лайн')
-        page.locator('[data-crm-menu]').click()
-        page.locator('.crm-sidebar [data-crm-nav="calculator"]').click()
-        before = page.locator('[data-calc-result] > strong').inner_text()
-        page.locator('[data-crm-calc] input[name="wage"]').fill('500')
-        after = page.locator('[data-calc-result] > strong').inner_text()
-        assert before != after
-        assert_no_overflow(page)
-        checks.append('crm/navigation + filters + persisted status + calculator')
-        print('PASS crm', flush=True)
-        page.close()
+    page=browser.new_page(viewport={'width':834,'height':900}); faults=attach_guards(page,'video'); all_faults+=faults
+    page.goto(origin+'/effects/video-scroll/',wait_until='networkidle'); no_overflow(page)
+    page.evaluate('window.scrollTo(0, document.body.scrollHeight * .45)'); page.wait_for_timeout(250)
+    progress=page.locator('[data-video-progress]').evaluate("e=>e.style.getPropertyValue('--progress')"); assert progress not in ('','0%')
+    page.close(); checks.append('video scroll progress')
 
-        page = browser.new_page(viewport={'width': 834, 'height': 1112})
-        set_route(page, '/lab/')
-        page.locator('[data-video-range]').fill('75')
-        assert page.locator('[data-video-scroll]').evaluate("el=>el.style.getPropertyValue('--progress')") == '75'
-        active_before = page.locator('[data-story-stack] > div.active').inner_text()
-        page.locator('[data-story-next]').click()
-        active_after = page.locator('[data-story-stack] > div.active').inner_text()
-        assert active_before != active_after
-        page.locator('[data-3d-range]').fill('35')
-        assert '35deg' in page.locator('[data-3d-object]').get_attribute('style')
-        page.locator('[data-transition-toggle]').click()
-        assert page.locator('[data-transition-panels] section.active').count() == 1
-        assert_no_overflow(page)
-        checks.append('interactive lab/all six stateful mechanisms')
-        print('PASS lab', flush=True)
-        page.close()
+    page=browser.new_page(viewport={'width':834,'height':900}); faults=attach_guards(page,'story'); all_faults+=faults
+    page.goto(origin+'/effects/scroll-story/',wait_until='networkidle'); no_overflow(page)
+    page.locator('[data-story-step="1"]').scroll_into_view_if_needed(); page.wait_for_timeout(250)
+    assert page.locator('[data-story-step="1"]').get_attribute('class').find('is-active')>=0
+    page.close(); checks.append('scroll storytelling state')
 
-        browser.close()
+    page=browser.new_page(viewport={'width':1440,'height':900}); faults=attach_guards(page,'type'); all_faults+=faults
+    page.goto(origin+'/effects/type-reveal/',wait_until='networkidle'); no_overflow(page)
+    word=page.locator('[data-type-word]').first; initial=word.evaluate("e=>e.style.getPropertyValue('--type-strength')")
+    page.locator('[data-type-field]').hover(position={'x':160,'y':300}); page.wait_for_timeout(100)
+    changed=word.evaluate("e=>e.style.getPropertyValue('--type-strength')"); assert changed!=initial
+    page.close(); checks.append('interactive typography pointer reveal')
 
-    print('BROWSER QA PASS')
-    for check in checks:
-        print(' -', check)
-    return 0
+    ctx=browser.new_context(viewport={'width':390,'height':844},reduced_motion='reduce'); page=ctx.new_page(); faults=attach_guards(page,'reduced'); all_faults+=faults
+    page.goto(origin+'/effects/digital-material/',wait_until='networkidle'); no_overflow(page)
+    before=page.locator('[data-material-object]').get_attribute('style'); page.locator('[data-material-stage]').hover(); page.wait_for_timeout(100); after=page.locator('[data-material-object]').get_attribute('style'); assert before==after
+    page.close(); ctx.close(); checks.append('prefers-reduced-motion behavior')
 
+    page=browser.new_page(viewport={'width':1440,'height':900}); faults=attach_guards(page,'404'); all_faults+=faults
+    page.goto(origin+'/this-route-does-not-exist/',wait_until='networkidle'); expect(page.locator('h1')).to_contain_text('Страница'); page.close(); checks.append('404 deep-route fallback')
 
-if __name__ == '__main__':
-    sys.exit(main())
+    browser.close()
+    if all_faults:
+      print('BROWSER QA FAIL')
+      for f in all_faults: print('-',f)
+      return 1
+  print('BROWSER QA PASS')
+  for c in checks: print(' -',c)
+  return 0
+
+if __name__=='__main__': sys.exit(main())
