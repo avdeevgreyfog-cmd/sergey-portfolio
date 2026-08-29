@@ -12,7 +12,7 @@ export const site = {
   positioning: 'Сайты и веб-приложения под ключ',
   github: 'https://github.com/avdeevgreyfog-cmd',
   contacts: [
-    { label: 'GitHub', href: 'https://github.com/avdeevgreyfog-cmd', kind: 'github', primary: false }
+    { label: 'GitHub — технический профиль', href: 'https://github.com/avdeevgreyfog-cmd', kind: 'github', primary: false }
   ] satisfies ContactConfig[]
 };
 
