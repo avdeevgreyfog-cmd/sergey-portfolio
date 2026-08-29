@@ -1,5 +1,5 @@
 from pathlib import Path
-import re, sys
+import struct, sys
 
 ROOT=Path(__file__).resolve().parents[1]
 DIST=ROOT/'dist'
@@ -21,15 +21,22 @@ for i in range(1,12):
 
 if (DIST/'projects/raznye-ludi/assets/final_hero.mp4').exists() and (DIST/'projects/raznye-ludi/assets/final_hero.mp4').stat().st_size < 1_000_000:
  errors.append('Raznye hero video is not a real imported media file')
-if (DIST/'og-image.png').exists() and (DIST/'og-image.png').stat().st_size < 5000:
- errors.append('OG image suspiciously small')
+og=DIST/'og-image.png'
+if og.exists():
+ data=og.read_bytes()
+ if len(data) < 24 or data[:8] != b'\x89PNG\r\n\x1a\n':
+  errors.append('OG image is not a valid PNG')
+ else:
+  width,height=struct.unpack('>II',data[16:24])
+  if (width,height)!=(1200,630): errors.append(f'OG image dimensions must be 1200x630, got {width}x{height}')
 
 for html in DIST.rglob('*.html'):
  text=html.read_text(encoding='utf-8',errors='replace')
  rel=html.relative_to(DIST)
  for banned in ['Lorem ipsum','example@email.com','example.com','Coming soon','VECTOR Engineering','LUMA Objects','Р-Кадры Demo']:
   if banned in text: errors.append(f'public stale/fake content in {rel}: {banned}')
- if '<title>' not in text or 'meta name="description"' not in text: errors.append(f'metadata missing: {rel}')
+ low=text.lower()
+ if '<title>' not in low or 'name="description"' not in low: errors.append(f'metadata missing: {rel}')
  if rel.as_posix() not in ['demo/raznye-ludi/index.html'] and 'meta property="og:image"' not in text: errors.append(f'OG metadata missing: {rel}')
 
 home=(DIST/'index.html').read_text(encoding='utf-8') if (DIST/'index.html').exists() else ''
