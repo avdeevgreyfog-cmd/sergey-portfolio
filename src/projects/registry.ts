@@ -36,9 +36,9 @@ export const projects: Project[] = [
     origin: 'PERSONAL',
     status: 'SHOWCASE',
     shortDescription: 'Атмосферный интерактивный сайт страйкбольной команды: фото, видео, storytelling и понятный путь до первого контакта.',
-    cover: 'assets/img/raznye-ludi-preview.png',
+    cover: 'projects/raznye-ludi/assets/scene_01.webp',
     previewMedia: [
-      { kind: 'image', src: 'assets/img/raznye-ludi-preview.png', alt: 'Главный экран сайта «Разные люди»' },
+      { kind: 'image', src: 'projects/raznye-ludi/assets/scene_01.webp', alt: 'Главная визуальная сцена сайта «Разные люди»' },
       { kind: 'video', src: 'projects/raznye-ludi/assets/final_hero.mp4', alt: 'Видео главного экрана проекта «Разные люди»' }
     ],
     caseMedia: [
