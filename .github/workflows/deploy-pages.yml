@@ -1,7 +1,7 @@
-name: Portfolio V4 QA and Pages
+name: Portfolio V5 QA and Pages
 on:
   push:
-    branches: [main, portfolio-v4]
+    branches: [main, portfolio-v5-work]
   workflow_dispatch:
 permissions:
   contents: read
@@ -40,7 +40,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: portfolio-v4-visual-qa
+          name: portfolio-v5-visual-qa
           path: |
             qa-screens
             visual-report
@@ -70,8 +70,8 @@ jobs:
           set -euo pipefail
           base='https://avdeevgreyfog-cmd.github.io/sergey-portfolio'
           check_route(){ local path="$1" expected="$2" body=''; for attempt in $(seq 1 18); do body="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "${base}${path}?release=${GITHUB_SHA}" || true)"; if grep -Fq "$expected" <<<"$body"; then echo "PASS ${path}"; return 0; fi; sleep 5; done; echo "FAIL ${path}"; return 1; }
-          check_route '/' 'Сайты и'
-          check_route '/works/' 'Работы'
+          check_route '/' 'Создаю цифровые продукты'
+          check_route '/works/' 'data-work-filters'
           check_route '/work/raznye-ludi/' 'Разные люди'
           check_route '/demo/raznye-ludi/' 'Присоединяйся к команде'
           check_route '/services/' 'Разработка сайтов'
