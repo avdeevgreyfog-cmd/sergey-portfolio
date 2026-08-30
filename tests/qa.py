@@ -12,9 +12,14 @@ home=(DIST/'index.html').read_text(encoding='utf-8')
 for route in ['/works/','/services/','/process/','/contact/']:
  if f'/sergey-portfolio{route}' not in home:errors.append(f'homepage route missing: {route}')
 if '/sergey-portfolio/effects/' in home:errors.append('effects leaked into primary commercial homepage')
+if 'Разные люди' in home:errors.append('project case leaked onto V5 about-first homepage')
+if 'v5-home-page' not in home:errors.append('V5 homepage transform missing')
 works=(DIST/'works/index.html').read_text(encoding='utf-8')
 if works.count('data-project-category=')!=1:errors.append('production works must contain exactly one published project')
-if 'data-work-filters' in works:errors.append('filters should be hidden with one category')
+if 'data-work-filters' not in works:errors.append('V5 work filters must remain visible even with one published project')
+for label in ['Все','Лендинги','Корпоративные сайты','Интернет-магазины','Веб-приложения']:
+ if f'>{label}<' not in works:errors.append(f'works filter missing: {label}')
+if 'data-work-empty' not in works:errors.append('works empty state missing')
 demo=(DIST/'demo/raznye-ludi/index.html').read_text(encoding='utf-8',errors='ignore')
 if 'data-portfolio-safe-demo="true"' not in demo:errors.append('demo safety marker missing')
 if 'kaspersky-labs.com' in demo:errors.append('external injected script leaked into demo')
@@ -33,4 +38,4 @@ if og.exists():
  elif len(data)>=24 and struct.unpack('>II',data[16:24])!=(1200,630):errors.append('OG dimensions invalid')
 if errors:
  print('STATIC QA FAIL');[print(' -',e) for e in errors];sys.exit(1)
-print('STATIC QA PASS');print(f'checked {len(required)} required artifacts, {len(html)} HTML pages, V4 commercial IA, one real project and safe demo')
+print('STATIC QA PASS');print(f'checked {len(required)} required artifacts, {len(html)} HTML pages, V5 about-first IA, persistent filters and safe demo')
