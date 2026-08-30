@@ -69,11 +69,11 @@ jobs:
         run: |
           set -euo pipefail
           base='https://avdeevgreyfog-cmd.github.io/sergey-portfolio'
-          check_route(){ local path="$1" expected="$2" body=''; for attempt in $(seq 1 18); do body="$(curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' "${base}${path}?release=${GITHUB_SHA}" || true)"; if grep -Fq "$expected" <<<"$body"; then echo "PASS ${path}"; return 0; fi; sleep 5; done; echo "FAIL ${path}"; return 1; }
+          check_route(){ local path="$1" expected="$2" body='' code=''; for attempt in $(seq 1 18); do code="$(curl -sS -L -o /tmp/page.html -w '%{http_code}' --max-time 20 -H 'Cache-Control: no-cache' "${base}${path}?release=${GITHUB_SHA}" || true)"; body="$(cat /tmp/page.html 2>/dev/null || true)"; if [ "$code" = '200' ] && grep -Fq "$expected" <<<"$body"; then echo "PASS ${path} HTTP ${code}"; return 0; fi; echo "RETRY ${path} HTTP ${code}"; sleep 5; done; echo "FAIL ${path} HTTP ${code}"; return 1; }
+          check_route '/demo/operations-os/' 'Operations OS'
           check_route '/' 'Сайты и веб-приложения'
           check_route '/works/' 'data-work-filters'
           check_route '/work/raznye-ludi/' 'Рабочий интерфейс'
-          check_route '/demo/raznye-ludi/' 'Присоединяйся к команде'
           check_route '/services/' 'Что могу разработать'
           check_route '/process/' 'Как проходит работа'
           check_route '/contact/' 'Обсудить'
