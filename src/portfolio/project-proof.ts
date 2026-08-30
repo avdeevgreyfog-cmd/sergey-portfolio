@@ -18,15 +18,6 @@ function mountLivePreview(host: HTMLElement, eager = false) {
 
 export function initProjectProof() {
   const route = routePath();
-  if (route === '/') {
-    const hero = document.querySelector<HTMLElement>('.hero-project');
-    if (hero) mountLivePreview(hero, true);
-    return;
-  }
-  if (route === '/works/' || route === '/works') {
-    document.querySelectorAll<HTMLElement>('.work-entry__media').forEach((el) => mountLivePreview(el));
-    return;
-  }
   if (route === '/work/raznye-ludi/' || route === '/work/raznye-ludi') {
     const film = document.querySelector<HTMLElement>('.case-film');
     if (film) mountLivePreview(film, true);
