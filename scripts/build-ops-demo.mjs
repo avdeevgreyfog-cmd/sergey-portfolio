@@ -15,11 +15,14 @@ if (parts.length !== 7) {
 }
 
 const encoded = parts.map((name) => fs.readFileSync(path.join(src, name), 'utf8').trim()).join('');
-const html = Buffer.from(encoded, 'base64');
-if (!html.toString('utf8', 0, 32).toLowerCase().includes('<!doctype html>')) {
+let html = Buffer.from(encoded, 'base64').toString('utf8');
+if (!html.slice(0, 64).toLowerCase().includes('<!doctype html>')) {
   throw new Error('Operations OS demo payload failed integrity check');
+}
+if (!html.toLowerCase().includes('name="description"')) {
+  html = html.replace('<head>', '<head>\n<meta name="description" content="Интерактивная демонстрация Operations OS для управления аутсорсингом: заявки, расчёты, объекты, подбор, табели, финансы и аналитика.">');
 }
 
 fs.mkdirSync(out, { recursive: true });
-fs.writeFileSync(path.join(out, 'index.html'), html);
-console.log(`Operations OS demo built: ${html.length} bytes -> dist/demo/operations-os/index.html`);
+fs.writeFileSync(path.join(out, 'index.html'), html, 'utf8');
+console.log(`Operations OS demo built: ${Buffer.byteLength(html)} bytes -> dist/demo/operations-os/index.html`);
