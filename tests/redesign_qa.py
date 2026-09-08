@@ -56,3 +56,8 @@ if 'Эта форма не отправляет сообщения' not in conta
 if errors:
  print('\n'.join(errors));sys.exit(1)
 print(f'PASS: {len(routes)} routes, local links/assets, headings, metadata, image decoding, content provenance and contact disclosure.')
+
+# Imported demo styles must stay local after rewriting upstream asset paths.
+demo=(root / "demo/raznye-ludi/index.html").read_text()
+assert 'href="/assets/css/demo-repairs.css"' in demo
+assert '//projects/' not in demo
