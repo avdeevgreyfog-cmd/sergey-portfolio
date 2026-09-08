@@ -1,5 +1,5 @@
 {
-  "name": "sergey-portfolio-v6",
+  "name": "sergey-portfolio-redesign-preview",
   "version": "6.0.0",
   "private": true,
   "type": "module",
@@ -9,9 +9,12 @@
     "build": "npm run clean && tsc && node scripts/build.mjs && node scripts/build-ops-demo.mjs",
     "test": "python3 tests/qa.py && node tests/fixture_qa.mjs",
     "test:browser": "python3 tests/browser_qa.py",
-    "test:visual": "python3 tests/visual_qa.py"
+    "test:visual": "python3 tests/visual_qa.py",
+    "dev": "vite",
+    "test:redesign": "python3 tests/redesign_qa.py"
   },
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vite": "^8.2.2"
   }
 }

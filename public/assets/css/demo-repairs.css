@@ -1,0 +1,4 @@
+/* Preserve the pinned project while repairing mobile heading overflow. */
+@media(max-width:600px){.hero .hero-copy{width:100%}.hero h1{font-size:clamp(30px,8vw,48px)!important;line-height:1.05!important;letter-spacing:-.025em!important}.hero h1 span{white-space:nowrap!important}.scene .reveal{opacity:1!important;transform:none!important}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*:before,*:after{animation:none!important;transition:none!important}.reveal{opacity:1!important;transform:none!important}}
+@media(max-width:600px){#about>.scene-content{position:absolute!important;inset:0!important;height:100%!important}#about .about-copy{top:auto!important;bottom:46px!important}#about .about-copy h2{font-size:36px!important}}
