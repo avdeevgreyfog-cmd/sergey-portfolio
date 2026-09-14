@@ -5,6 +5,7 @@ initNavigation();
 observeReveals();
 const route=routePath();
 if(route==='/contact/'||route==='/contact')import('./portfolio/contact.js').then(m=>m.initContact());
+if(route==='/projects/'||route==='/projects'||route==='/works/'||route==='/works')import('./portfolio/works.js').then(m=>m.initWorks());
 if(route.includes('/effects/video-scroll'))import('./effects/video-scroll.js').then(m=>m.initVideoScroll());
 if(route.includes('/effects/scroll-story'))import('./effects/scroll-story.js').then(m=>m.initScrollStory());
 if(route.includes('/effects/kinetic-type'))import('./effects/kinetic-type.js').then(m=>m.initKineticType());

@@ -49,7 +49,9 @@ for p in (root/'assets/img').glob('*.webp'):
  except Exception as e:errors.append(f'Invalid image: {p.name}: {e}')
 for p in ['projects','works']:
  txt=(root/p/'index.html').read_text()
- if 'data-work-filters' in txt:errors.append('Empty categories returned')
+ if 'data-work-filters' not in txt:errors.append('Work catalogue filters missing')
+ for category in ['Сайты','Веб-приложения','Эксперименты']:
+  if f'data-filter="{category}"' not in txt or f'data-project-category="{category}"' not in txt:errors.append(f'Work catalogue category missing: {category}')
  if 'Эксперимент' not in txt:errors.append('Missing experiment labels')
 contact=(root/'contact/index.html').read_text()
 if 'Эта форма не отправляет сообщения' not in contact:errors.append('Contact must disclose missing delivery')
