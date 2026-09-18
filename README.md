@@ -22,6 +22,8 @@ npm run test:visual
 
 ## Current architecture
 
+- V10 homepage: editorial workspace direction with a photographic hero, asymmetric service composition, compact process and typography-led Works gateway. The homepage still does not expose project case cards.
+
 - `scripts/v7-build.mjs`: static page templates, metadata and route output.
 - `public/assets/css/portfolio.css`: one active stylesheet for all portfolio pages; legacy CSS is not loaded.
 - `src/v7-main.ts`: accessible navigation, project filters, email draft preparation.
